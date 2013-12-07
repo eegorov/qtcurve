@@ -951,7 +951,7 @@ Style::prePolish(QWidget *widget) const
         return;
     }
 
-    QtcWidgetPropsP props(widget);
+    QtcWidgetProps props(widget);
     // HACK:
     // Set TranslucentBackground properties on toplevel widgets before they
     // create native windows. These windows are typically shown after being
@@ -1711,7 +1711,7 @@ Style::polish(QWidget *widget)
     if (!widget)
         return;
 
-    QtcWidgetPropsP qtcProps(widget);
+    QtcWidgetProps qtcProps(widget);
     bool enableMouseOver(opts.highlightFactor || opts.coloredMouseOver);
     if (qtcCheckLogLevel(QTC_LOG_INFO) && qtcGetWid(widget) &&
         widget->windowType() != Qt::Desktop && !qtcProps->prePolished) {
@@ -11700,7 +11700,7 @@ void Style::drawBackground(QPainter *p, const QWidget *widget, BackgroundType ty
                    BGND_DIALOG == type ? opts.dlgOpacity : opts.bgndOpacity);
     QRect bgndRect = widget->rect();
     QRect imgRect = bgndRect;
-    QtcWidgetPropsP props(widget);
+    QtcWidgetProps props(widget);
 
     if (100 != opacity && !(qobject_cast<const QMdiSubWindow*>(widget) ||
                             Utils::hasAlphaChannel(window))) {
