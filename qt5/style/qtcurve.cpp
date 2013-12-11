@@ -178,11 +178,6 @@ QtcThemedApp theThemedApp = APP_OTHER;
 static QString getFile(const QString &f);
 QString appName = getFile(qApp->arguments()[0]);
 
-//
-// OK, Etching looks cr*p on plasma widgets, and khtml...
-// CPD:TODO WebKit?
-QSet<const QWidget*> theNoEtchWidgets;
-
 static QColor checkColour(const QStyleOption *option, QPalette::ColorRole role)
 {
     QColor col(option->palette.brush(role).color());
@@ -4118,16 +4113,16 @@ QColor Style::getLowerEtchCol(const QWidget *widget) const
         return col;
     }
 
-    if(qtcIsFlatBgnd(opts.bgndAppearance))
-    {
-        bool doEtch=widget && widget->parentWidget() && !theNoEtchWidgets.contains(widget);
-// CPD: Don't really want to check here for every widget, when (so far) on problem seems to be in
-// KPackageKit, and thats with its KTextBrowser - so just check when we draw scrollviews...
-//     if(doEtch && isInQAbstractItemView(widget->parentWidget()))
-//     {
-//         doEtch=false;
-//         theNoEtchWidgets.insert(widget);
-//     }
+    if (qtcIsFlatBgnd(opts.bgndAppearance)) {
+        QtcWidgetProps props(widget);
+        bool doEtch = widget && widget->parentWidget() && !props->noEtch;
+        // CPD: Don't really want to check here for every widget, when
+        // (so far) on problem seems to be in KPackageKit, and thats with
+        // its KTextBrowser - so just check when we draw scrollviews...
+        // if (doEtch && isInQAbstractItemView(widget->parentWidget())) {
+        //     doEtch = false;
+        //     props->noEtch = true;
+        // }
 
         if(doEtch)
         {
@@ -4169,7 +4164,6 @@ int Style::getFrameRound(const QWidget *widget) const
 void Style::widgetDestroyed(QObject *o)
 {
     QWidget *w = static_cast<QWidget*>(o);
-    theNoEtchWidgets.remove(w);
     if (APP_KONTACT == theThemedApp) {
         itsSViewContainers.remove(w);
         QMap<QWidget*, QSet<QWidget*> >::Iterator it(itsSViewContainers.begin());
