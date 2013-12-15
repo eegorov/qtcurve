@@ -1551,13 +1551,6 @@ int Style::pixelMetric(PixelMetric metric, const QStyleOption *option, const QWi
                 ? (opts.thin&THIN_BUTTONS) ? 4 : 6
                 : (opts.thin&THIN_BUTTONS) ? 2 : 4)+MAX_ROUND_BTN_PAD;
     case PM_TabBarTabShiftVertical:
-#if 0 // QT_VERSION < 0x040500
-        if (const QStyleOptionTab *tab = qstyleoption_cast<const QStyleOptionTab *>(option))
-        {
-            if((QTabBar::RoundedSouth==tab->shape || QTabBar::TriangularSouth==tab->shape))
-                return -2;
-        }
-#endif
         return 2;
     case PM_TabBarTabShiftHorizontal:
         return 0;
@@ -2431,9 +2424,7 @@ void Style::drawControl(ControlElement element, const QStyleOption *option, QPai
             }
         }
         break;
-#if QT_VERSION >= 0x040300
-    case CE_HeaderEmptyArea:
-    {
+    case CE_HeaderEmptyArea: {
         const QStyleOptionHeader *ho = qstyleoption_cast<const QStyleOptionHeader *>(option);
         bool                     horiz(ho ? Qt::Horizontal==ho->orientation : state&State_Horizontal);
         QStyleOption             opt(*option);
@@ -2465,7 +2456,6 @@ void Style::drawControl(ControlElement element, const QStyleOption *option, QPai
         painter->restore();
         break;
     }
-#endif
     case CE_HeaderSection:
         if (const QStyleOptionHeader *ho = qstyleoption_cast<const QStyleOptionHeader *>(option))
         {
@@ -4554,15 +4544,11 @@ void Style::drawComplexControl(ComplexControl control, const QStyleOptionComplex
 
             State mflags(bflags);
 
-            if(!isOOWidget(widget))
-            {
-#if QT_VERSION >= 0x040500
-                if (state&State_Sunken && !(toolbutton->activeSubControls&SC_ToolButton))
-                    bflags&=~State_Sunken;
-#else
-                if (toolbutton->activeSubControls&SC_ToolButtonMenu && state&State_Enabled)
-                    mflags |= State_Sunken;
-#endif
+            if (!isOOWidget(widget)) {
+                if (state&State_Sunken &&
+                    !(toolbutton->activeSubControls & SC_ToolButton)) {
+                    bflags &= ~State_Sunken;
+                }
             }
 
             bool         drawMenu=TBTN_JOINED==opts.tbarBtns
@@ -6138,13 +6124,9 @@ QSize Style::sizeFromContents(ContentsType type, const QStyleOption *option, con
         }
         break;
     case CT_MenuBarItem:
-#if QT_VERSION >= 0x040500
         if (!size.isEmpty())
-            newSize=size+QSize((windowsItemHMargin * 4)+2, windowsItemVMargin+1);
-#else
-        if (!size.isEmpty())
-            newSize=size+QSize((windowsItemHMargin * 4)+2, windowsItemVMargin);
-#endif
+            newSize = size + QSize((windowsItemHMargin * 4) + 2,
+                                   windowsItemVMargin + 1);
         break;
     default:
         break;
@@ -6176,7 +6158,6 @@ QRect Style::subElementRect(SubElement element, const QStyleOption *option, cons
             rect.adjust(0, 0, -m, 0);
         return rect;
     }
-#if QT_VERSION >= 0x040500
     case SE_TabBarTabLeftButton:
         return QCommonStyle::subElementRect(element, option, widget).translated(-2, -1);
     case SE_TabBarTabRightButton:
@@ -6270,7 +6251,6 @@ QRect Style::subElementRect(SubElement element, const QStyleOption *option, cons
             return rect;
         }
         break;
-#endif
     case SE_RadioButtonIndicator:
         rect = visualRect(option->direction, option->rect,
                           QCommonStyle::subElementRect(element, option, widget)).adjusted(0, 0, 1, 1);
@@ -6286,14 +6266,12 @@ QRect Style::subElementRect(SubElement element, const QStyleOption *option, cons
     case SE_ProgressBarGroove:
     case SE_ProgressBarLabel:
         return option->rect;
-#if QT_VERSION >= 0x040300
     case SE_GroupBoxLayoutItem:
         rect = option->rect;
 //             if (const QStyleOptionGroupBox *groupBoxOpt = qstyleoption_cast<const QStyleOptionGroupBox *>(option))
 //                 if (groupBoxOpt->subControls & (SC_GroupBoxCheckBox | SC_GroupBoxLabel))
 //                     rect.setTop(rect.top() + 2);    // eat the top margin a little bit
         break;
-#endif
     case SE_PushButtonFocusRect:
         if(FULL_FOCUS)
         {
