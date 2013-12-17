@@ -65,6 +65,8 @@
 #include <QPainter>
 #include <QMainWindow>
 #include <QTextStream>
+#include <QFileDialog>
+#include <QToolBox>
 
 #ifdef QTC_ENABLE_X11
 #  include <QDBusConnection>
@@ -1660,10 +1662,10 @@ Style::polish(QWidget *widget)
         }
         if (widget->autoFillBackground() && widget->parentWidget() &&
             widget->parentWidget()->objectName() == "qt_scrollarea_viewport" &&
-            qtcCheckType0<QAbstractScrollArea>(widget->parentWidget()
-                                               ->parentWidget()) && //grampa
-            qtcCheckType0(widget->parentWidget()->parentWidget()
-                          ->parentWidget(), "QToolBox")) {
+            qtcCheckType0<QAbstractScrollArea>(
+                widget->parentWidget()->parentWidget()) &&
+            qtcCheckType0<QToolBox>(
+                widget->parentWidget()->parentWidget()->parentWidget())) {
             widget->parentWidget()->setAutoFillBackground(false);
             widget->setAutoFillBackground(false);
         }
@@ -2203,8 +2205,8 @@ void Style::unpolish(QWidget *widget)
 #endif
     itsBlurHelper->unregisterWidget(widget);
 
-    // Sometimes get background errors with QToolBox (e.g. in Bespin config), and setting WA_StyledBackground seems to
-    // fix this,..
+    // Sometimes get background errors with QToolBox (e.g. in Bespin config),
+    // and setting WA_StyledBackground seems to fix this,..
     if (qtcIsCustomBgnd(&opts) || FRAME_SHADED == opts.groupBox ||
         FRAME_FADED == opts.groupBox) {
         switch (widget->windowType()) {
