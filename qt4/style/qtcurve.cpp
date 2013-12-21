@@ -2171,7 +2171,7 @@ void Style::polishScrollArea(QAbstractScrollArea *scrollArea, bool isKFilePlaces
 
 void Style::unpolish(QApplication *app)
 {
-    if(opts.hideShortcutUnderline)
+    if (opts.hideShortcutUnderline)
         app->removeEventFilter(itsShortcutHandler);
     QCommonStyle::unpolish(app);
 }
@@ -2180,6 +2180,7 @@ void Style::unpolish(QWidget *widget)
 {
     if (!widget)
         return;
+    widget->removeEventFilter(this);
     itsWindowManager->unregisterWidget(widget);
 #ifdef QTC_ENABLE_X11
     itsShadowHelper->unregisterWidget(widget);
@@ -2213,18 +2214,18 @@ void Style::unpolish(QWidget *widget)
         qobject_cast<QMdiSubWindow*>(widget))
         widget->setAttribute(Qt::WA_StyledBackground, false);
 
-    if(opts.menubarHiding && qobject_cast<QMainWindow*>(widget) && static_cast<QMainWindow*>(widget)->menuWidget())
-    {
-        widget->removeEventFilter(this);
-        if(itsSaveMenuBarStatus)
-            static_cast<QMainWindow*>(widget)->menuWidget()->removeEventFilter(this);
+    if (opts.menubarHiding && qobject_cast<QMainWindow*>(widget) &&
+        static_cast<QMainWindow*>(widget)->menuWidget()) {
+        if (itsSaveMenuBarStatus) {
+            static_cast<QMainWindow*>(widget)->menuWidget()
+                ->removeEventFilter(this);
+        }
     }
 
     if (opts.statusbarHiding && qobject_cast<QMainWindow*>(widget)) {
         QList<QStatusBar*> sb = getStatusBars(widget);
 
         if (sb.count()) {
-            widget->removeEventFilter(this);
             if (itsSaveStatusBarStatus) {
                 foreach (QStatusBar *statusBar, sb) {
                     statusBar->removeEventFilter(this);
@@ -2247,31 +2248,23 @@ void Style::unpolish(QWidget *widget)
        qobject_cast<QTextEdit*>(widget) ||
        qobject_cast<QLineEdit*>(widget) ||
        qobject_cast<QDial*>(widget) ||
-//       qobject_cast<QDockWidget*>(widget) ||
+       // qobject_cast<QDockWidget*>(widget) ||
        widget->inherits("QWorkspaceTitleBar") ||
        widget->inherits("QDockSeparator") ||
        widget->inherits("QDockWidgetSeparator") ||
        widget->inherits("Q3DockWindowResizeHandle"))
         widget->setAttribute(Qt::WA_Hover, false);
-    if (qobject_cast<QScrollBar*>(widget))
-    {
+    if (qobject_cast<QScrollBar*>(widget)) {
         widget->setAttribute(Qt::WA_Hover, false);
-        if(ROUNDED && !opts.flatSbarButtons)
+        if (ROUNDED && !opts.flatSbarButtons) {
             widget->setAttribute(Qt::WA_OpaquePaintEvent, false);
-        if(!opts.gtkScrollViews)
-            widget->removeEventFilter(this);
-    }
-    else if (qobject_cast<QProgressBar*>(widget))
-    {
-        widget->removeEventFilter(this);
+        }
+    } else if (qobject_cast<QProgressBar*>(widget)) {
         if(opts.boldProgress)
             unSetBold(widget);
         itsProgressBars.remove((QProgressBar*)widget);
     } else if (widget->inherits("Q3Header")) {
         widget->setMouseTracking(false);
-        widget->removeEventFilter(this);
-    } else if (opts.highlightScrollViews && widget->inherits("Q3ScrollView")) {
-        widget->removeEventFilter(this);
     } else if (qobject_cast<QMenuBar*>(widget)) {
 #ifdef QTC_ENABLE_X11
         if (opts.xbar) {
@@ -2283,18 +2276,11 @@ void Style::unpolish(QWidget *widget)
         if(qtcIsCustomBgnd(&opts))
             widget->setBackgroundRole(QPalette::Background);
 
-            widget->removeEventFilter(this);
-
-        if(SHADE_WINDOW_BORDER==opts.shadeMenubars || opts.customMenuTextColor || SHADE_BLEND_SELECTED==opts.shadeMenubars ||
+        if (SHADE_WINDOW_BORDER==opts.shadeMenubars || opts.customMenuTextColor || SHADE_BLEND_SELECTED==opts.shadeMenubars ||
            SHADE_SELECTED==opts.shadeMenubars || (SHADE_CUSTOM==opts.shadeMenubars &&TOO_DARK(itsMenubarCols[ORIGINAL_SHADE])))
             widget->setPalette(QApplication::palette());
-    }
-    else if(qobject_cast<QLabel*>(widget))
-        widget->removeEventFilter(this);
-    else if(/*!opts.gtkScrollViews && */qobject_cast<QAbstractScrollArea*>(widget))
+    } else if(/*!opts.gtkScrollViews && */qobject_cast<QAbstractScrollArea*>(widget))
     {
-        if(!opts.gtkScrollViews && (((QFrame*)widget)->frameWidth()>0))
-            widget->removeEventFilter(this);
         if(APP_KONTACT==theThemedApp && widget->parentWidget())
         {
             QWidget *frame=scrollViewFrame(widget->parentWidget());
@@ -2328,17 +2314,12 @@ void Style::unpolish(QWidget *widget)
         unSetBold(widget);
 
     if (widget->inherits("QTipLabel") && !qtcIsFlat(opts.tooltipAppearance)) {
-        widget->setAttribute(Qt::WA_PaintOnScreen, false);
         widget->setAttribute(Qt::WA_NoSystemBackground, false);
         widget->clearMask();
     }
 
     if (!widget->isWindow())
         if (QFrame *frame = qobject_cast<QFrame*>(widget)) {
-            // if (QFrame::HLine==frame->frameShape() ||
-            //     QFrame::VLine==frame->frameShape())
-            widget->removeEventFilter(this);
-
             if (qtcCheckKDEType0(widget->parent(), KTitleWidget)) {
                 if(qtcIsCustomBgnd(&opts))
                     frame->setAutoFillBackground(true);
@@ -2359,11 +2340,8 @@ void Style::unpolish(QWidget *widget)
         }
 
     if (qobject_cast<QMenu*>(widget)) {
-        widget->removeEventFilter(this);
-        widget->setAttribute(Qt::WA_PaintOnScreen, false);
         widget->setAttribute(Qt::WA_NoSystemBackground, false);
         widget->clearMask();
-
         if (opts.lighterPopupMenuBgnd || opts.shadePopupMenu) {
             widget->setPalette(QApplication::palette());
         }
@@ -2372,8 +2350,6 @@ void Style::unpolish(QWidget *widget)
     if ((!qtcIsFlatBgnd(opts.menuBgndAppearance) ||
          100 != opts.menuBgndOpacity || !(opts.square & SQUARE_POPUP_MENUS)) &&
         widget->inherits("QComboBoxPrivateContainer")) {
-        widget->removeEventFilter(this);
-        widget->setAttribute(Qt::WA_PaintOnScreen, false);
         widget->setAttribute(Qt::WA_NoSystemBackground, false);
         widget->clearMask();
     }
@@ -2383,14 +2359,6 @@ void Style::unpolish(QWidget *widget)
         qobject_cast<QToolBar*>(widget) ||
         (widget && qobject_cast<QToolBar*>(widget->parent())))
         widget->setBackgroundRole(QPalette::Button);
-#ifdef QTC_ENABLE_X11
-    QWidget *window=widget->window();
-
-    if ((100 != opts.bgndOpacity && qtcIsWindow(window)) ||
-        (100 != opts.dlgOpacity && qtcIsDialog(window))) {
-        widget->removeEventFilter(this);
-    }
-#endif
 }
 
 //
@@ -2610,7 +2578,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                 double radius = MENU_AND_TOOLTIP_RADIUS;
                 QStyleOption opt;
                 opt.init(widget);
-                const QColor *use(popupMenuCols(&opt));
+                const QColor *use = popupMenuCols(&opt);
 
                 // Qt4 does not clear the background if the attribute
                 // Qt::WA_NoSystemBackground is not set on the widget.
@@ -2628,7 +2596,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
 
                 // In case the gradient uses alpha, we need to fill with
                 // the background colour - this makes it consistent with Gtk.
-                if (100 == opts.menuBgndOpacity) {
+                if (opts.menuBgndOpacity == 100) {
                     p.fillRect(r, opt.palette.brush(QPalette::Background));
                 }
                 drawBackground(&p, widget, BGND_MENU);
