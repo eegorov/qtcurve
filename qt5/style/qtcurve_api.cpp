@@ -23,6 +23,7 @@
 #include <qtcurve-utils/qtprops.h>
 
 #include "qtcurve_p.h"
+#include "argbhelper.h"
 #include "utils.h"
 #include "shortcuthandler.h"
 #include "windowmanager.h"
@@ -584,13 +585,11 @@ void Style::polish(QWidget *widget)
             widget->parentWidget()->parentWidget()->inherits("KFileWidget") /*&&
                                                                               widget->parentWidget()->parentWidget()->parentWidget()->inherits("KFileDialog")*/)
         ((QDockWidget*)widget)->setTitleBarWidget(new QtCurveDockWidgetTitleBar(widget));
-    else if((!qtcIsFlatBgnd(opts.menuBgndAppearance) || 100!=opts.menuBgndOpacity || !(opts.square&SQUARE_POPUP_MENUS)) &&
-            widget->inherits("QComboBoxPrivateContainer") && !widget->testAttribute(Qt::WA_TranslucentBackground))
-        setTranslucentBackground(widget);
 
     if (widget->inherits("QTipLabel") && !qtcIsFlat(opts.tooltipAppearance)) {
         widget->setBackgroundRole(QPalette::NoRole);
-        setTranslucentBackground(widget);
+        // TODO: turn this into addAlphaChannel
+        widget->setAttribute(Qt::WA_TranslucentBackground);
     }
 
     if (!widget->isWindow())
@@ -636,10 +635,6 @@ void Style::polish(QWidget *widget)
         }
 
     if (qobject_cast<QMenu*>(widget)) {
-        if (opts.menuBgndOpacity != 100 ||
-            !(opts.square & SQUARE_POPUP_MENUS)) {
-            setTranslucentBackground(widget);
-        }
         if (opts.lighterPopupMenuBgnd || opts.shadePopupMenu) {
             QPalette pal(widget->palette());
             pal.setBrush(QPalette::Active, QPalette::Window,
@@ -649,14 +644,19 @@ void Style::polish(QWidget *widget)
                 setMenuTextColors(widget, false);
             }
         }
+        if (opts.menuBgndOpacity != 100 ||
+            !(opts.square & SQUARE_POPUP_MENUS)) {
+            widget->setAttribute(Qt::WA_NoSystemBackground);
+            addAlphaChannel(widget);
+        }
     }
 
     if((!qtcIsFlatBgnd(opts.menuBgndAppearance) || 100!=opts.menuBgndOpacity || !(opts.square&SQUARE_POPUP_MENUS)) &&
        widget->inherits("QComboBoxPrivateContainer"))
     {
         widget->installEventFilter(this);
-        if((100!=opts.menuBgndOpacity || !(opts.square&SQUARE_POPUP_MENUS)) && !widget->testAttribute(Qt::WA_TranslucentBackground))
-            setTranslucentBackground(widget);
+        widget->setAttribute(Qt::WA_NoSystemBackground);
+        addAlphaChannel(widget);
     }
 
     bool parentIsToolbar(false);
@@ -931,7 +931,6 @@ void Style::unpolish(QWidget *widget)
     if (qobject_cast<QMenu*>(widget)) {
         // TODO remove these
         widget->setAttribute(Qt::WA_NoSystemBackground, false);
-        widget->setAttribute(Qt::WA_TranslucentBackground, false);
         widget->clearMask();
 
         if (opts.lighterPopupMenuBgnd || opts.shadePopupMenu) {
@@ -942,7 +941,6 @@ void Style::unpolish(QWidget *widget)
     if((!qtcIsFlatBgnd(opts.menuBgndAppearance) || 100!=opts.menuBgndOpacity || !(opts.square&SQUARE_POPUP_MENUS)) &&
        widget->inherits("QComboBoxPrivateContainer")) {
         widget->setAttribute(Qt::WA_NoSystemBackground, false);
-        widget->setAttribute(Qt::WA_TranslucentBackground, false);
         widget->clearMask();
     }
 

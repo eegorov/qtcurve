@@ -1876,6 +1876,7 @@ Style::polish(QWidget *widget)
     if (widget->inherits("QTipLabel") &&
         !qtcIsFlat(opts.tooltipAppearance)) {
         widget->setBackgroundRole(QPalette::NoRole);
+        // TODO: turn this into addAlphaChannel
         widget->setAttribute(Qt::WA_TranslucentBackground);
     }
 
