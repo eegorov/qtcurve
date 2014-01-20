@@ -587,7 +587,6 @@ setOpacityProp(QWidget *w, unsigned short opacity)
 {
     if (WId wid = qtcGetWid(w->window())) {
         qtcX11SetOpacity(wid, opacity);
-        qtcX11Flush();
     }
 }
 
@@ -601,7 +600,6 @@ setBgndProp(QWidget *w, EAppearance app, bool haveBgndImage)
              (w->palette().background().color().rgb() & 0x00FFFFFF) << 8);
 
         qtcX11SetBgnd(wid, prop);
-        qtcX11Flush();
     }
 }
 
@@ -615,7 +613,6 @@ setSbProp(QWidget *w)
         if (!prop.isValid() || !prop.toBool()) {
             w->setProperty(constStatusBarProperty, true);
             qtcX11SetStatusBar(wid);
-            qtcX11Flush();
         }
     }
 }
