@@ -30,9 +30,7 @@
 #include "blurhelper.h"
 #include <common/config_file.h>
 
-#ifdef QTC_ENABLE_X11
-#  include "shadowhelper.h"
-#endif
+#include "shadowhelper.h"
 
 #include <QFormLayout>
 #include <QProgressBar>
@@ -345,9 +343,7 @@ void Style::polish(QWidget *widget)
     }
 
     itsWindowManager->registerWidget(widget);
-#ifdef QTC_ENABLE_X11
     itsShadowHelper->registerWidget(widget);
-#endif
 
     // Need to register all widgets to blur helper, in order to have proper
     // blur_behind region set have proper regions removed for opaque widgets.
@@ -410,11 +406,9 @@ void Style::polish(QWidget *widget)
                 ->installEventFilter(this);
         if (itsSaveMenuBarStatus && qtcMenuBarHidden(appName)) {
             static_cast<QMainWindow*>(widget)->menuWidget()->setHidden(true);
-#ifdef QTC_ENABLE_X11
             if (BLEND_TITLEBAR || opts.menubarHiding & HIDE_KWIN ||
                 opts.windowBorder & WINDOW_BORDER_USE_MENUBAR_COLOR_FOR_TITLEBAR)
                 emitMenuSize(static_cast<QMainWindow*>(widget)->menuWidget(), 0);
-#endif
         }
     }
 
@@ -431,10 +425,8 @@ void Style::polish(QWidget *widget)
                     statusBar->setHidden(true);
                 }
             }
-#ifdef QTC_ENABLE_X11
             setSbProp(widget);
             emitStatusBarState(sb.first());
-#endif
         }
     }
 
@@ -513,13 +505,13 @@ void Style::polish(QWidget *widget)
         if(opts.boldProgress)
             setBold(widget);
         widget->installEventFilter(this);
-    } else if(qobject_cast<QMenuBar*>(widget)) {
-#ifdef QTC_ENABLE_X11
-        if (BLEND_TITLEBAR || opts.menubarHiding&HIDE_KWIN ||
-            opts.windowBorder&WINDOW_BORDER_USE_MENUBAR_COLOR_FOR_TITLEBAR)
-            emitMenuSize(widget, PREVIEW_MDI==itsIsPreview ||
+    } else if (qobject_cast<QMenuBar*>(widget)) {
+        if (BLEND_TITLEBAR || opts.menubarHiding & HIDE_KWIN ||
+            opts.windowBorder &
+            WINDOW_BORDER_USE_MENUBAR_COLOR_FOR_TITLEBAR) {
+            emitMenuSize(widget, PREVIEW_MDI == itsIsPreview ||
                          !widget->isVisible() ? 0 : widget->rect().height());
-#endif
+        }
         if (qtcIsCustomBgnd(&opts))
             widget->setBackgroundRole(QPalette::NoRole);
 
@@ -743,7 +735,6 @@ void Style::polish(QWidget *widget)
         widget->layout()->setMargin(0);
     }
 
-#ifdef QTC_ENABLE_X11
     QWidget *window=widget->window();
 
     if ((100 != opts.bgndOpacity && qtcIsWindow(window)) ||
@@ -754,7 +745,6 @@ void Style::polish(QWidget *widget)
             widget->setAttribute(Qt::WA_OpaquePaintEvent, false);
         }
     }
-#endif
 
 #ifdef QTC_QT5_ENABLE_KDE
     // Make file selection button in QPrintDialog appear more KUrlRequester like...
@@ -782,9 +772,7 @@ void Style::unpolish(QWidget *widget)
         return;
     widget->removeEventFilter(this);
     itsWindowManager->unregisterWidget(widget);
-#ifdef QTC_ENABLE_X11
     itsShadowHelper->unregisterWidget(widget);
-#endif
     itsBlurHelper->unregisterWidget(widget);
 
     // Sometimes get background errors with QToolBox (e.g. in Bespin config),
@@ -1070,9 +1058,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                                            opts.round > ROUND_SLIGHT));
             }
             return false;
-        }
-#ifdef QTC_ENABLE_X11
-        else if((BLEND_TITLEBAR ||
+        } else if ((BLEND_TITLEBAR ||
                  opts.windowBorder &
                  WINDOW_BORDER_USE_MENUBAR_COLOR_FOR_TITLEBAR ||
                  opts.menubarHiding & HIDE_KWIN) &&
@@ -1086,7 +1072,6 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                              re->size().height());
             }
         }
-#endif
         break;
     case QEvent::ShortcutOverride:
         if ((opts.menubarHiding || opts.statusbarHiding) &&
@@ -1121,7 +1106,6 @@ bool Style::eventFilter(QObject *object, QEvent *event)
            qtcStatusBarHidden(appName))
             static_cast<QStatusBar *>(object)->setHidden(true);
         break;
-#ifdef QTC_ENABLE_X11
     case QEvent::PaletteChange: {
         QWidget *widget = qtcToWidget(object);
 
@@ -1132,7 +1116,6 @@ bool Style::eventFilter(QObject *object, QEvent *event)
         }
         break;
     }
-#endif
     case QEvent::Paint: {
         if ((!qtcIsFlatBgnd(opts.menuBgndAppearance) ||
              opts.menuBgndImage.type != IMG_NONE ||
@@ -1299,9 +1282,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                                            opts.round > ROUND_SLIGHT));
             }
             return false;
-        }
-#ifdef QTC_ENABLE_X11
-        else if ((BLEND_TITLEBAR ||
+        } else if ((BLEND_TITLEBAR ||
                   opts.windowBorder &
                   WINDOW_BORDER_USE_MENUBAR_COLOR_FOR_TITLEBAR ||
                   opts.menubarHiding & HIDE_KWIN) &&
@@ -1322,13 +1303,10 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                 setOpacityProp(widget, (unsigned short)opacity);
             }
         }
-#endif
         break;
     }
     case QEvent::Destroy:
-    case QEvent::Hide:
-    {
-#ifdef QTC_ENABLE_X11
+    case QEvent::Hide: {
         if ((BLEND_TITLEBAR ||
              opts.windowBorder &
              WINDOW_BORDER_USE_MENUBAR_COLOR_FOR_TITLEBAR ||
@@ -1337,7 +1315,6 @@ bool Style::eventFilter(QObject *object, QEvent *event)
             QMenuBar *mb = (QMenuBar*)object;
             emitMenuSize((QMenuBar*)mb, 0);
         }
-#endif
         // if(itsHoverWidget && object==itsHoverWidget) {
         //     // itsPos.setX(-1);
         //     // itsPos.setY(-1);
