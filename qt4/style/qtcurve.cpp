@@ -1874,7 +1874,7 @@ Style::polish(QWidget *widget)
                 }
             }
 
-            QComboBox *p = NULL;
+            QComboBox *p = nullptr;
             if (opts.gtkComboMenus &&
                 (p = qtcObjCast<QComboBox>(getParent<2>(widget))) &&
                 !p->isEditable()) {
@@ -3540,7 +3540,7 @@ void Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option, 
     }
 #endif
     case PE_Widget:
-        // TODO: handle widget == NULL
+        // TODO: handle widget == nullptr
         if (widget && widget->testAttribute(Qt::WA_StyledBackground) &&
             ((!widget->testAttribute(Qt::WA_NoSystemBackground) &&
               (qtcIsDialog(widget) || qtcIsWindow(widget)) &&
@@ -8440,7 +8440,7 @@ Style::drawComplexControl(ComplexControl control,
 
                 if (!kwin && widget && BLEND_TITLEBAR &&
                     qobject_cast<const QMdiSubWindow*>(widget)) {
-                    const QWidget *w = NULL;
+                    const QWidget *w = nullptr;
                     if (qobject_cast<const QMainWindow*>(widget)) {
                         w = widget;
                     } else if (static_cast<const QMdiSubWindow*>(
@@ -9265,7 +9265,7 @@ Style::drawItemText(QPainter *painter, const QRect &rect, int flags,
                     QPalette::ColorRole textRole) const
 {
     if (textRole == QPalette::ButtonText && !opts.stdSidebarButtons) {
-        const QAbstractButton *button = getButton(NULL, painter);
+        const QAbstractButton *button = getButton(nullptr, painter);
 
         if (button && isMultiTabBarTab(button) && button->isChecked()) {
             QPalette p(pal);
@@ -13316,13 +13316,13 @@ void Style::borderSizesChanged()
 static QMainWindow*
 getWindow(unsigned int xid)
 {
-    QTC_RET_IF_FAIL(xid, NULL);
+    QTC_RET_IF_FAIL(xid, nullptr);
     foreach (QWidget *widget, QApplication::topLevelWidgets()) {
         if (qobject_cast<QMainWindow*>(widget) && qtcGetWid(widget) == xid) {
             return static_cast<QMainWindow*>(widget);
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 static bool
@@ -13330,7 +13330,7 @@ diffTime(struct timeval *lastTime)
 {
     struct timeval now, diff;
 
-    gettimeofday(&now, NULL);
+    gettimeofday(&now, nullptr);
     timersub(&now, lastTime, &diff);
     *lastTime = now;
     return diff.tv_sec > 0 || diff.tv_usec > 500000;

@@ -611,7 +611,7 @@ void Style::polish(QWidget *widget)
                 }
             }
 
-            QComboBox *p = NULL;
+            QComboBox *p = nullptr;
             if (opts.gtkComboMenus &&
                 (p = qtcObjCast<QComboBox>(getParent<2>(widget))) &&
                 !p->isEditable()) {
@@ -909,7 +909,7 @@ void Style::unpolish(QWidget *widget)
                 }
             }
 
-            QComboBox *p = NULL;
+            QComboBox *p = nullptr;
             if (opts.gtkComboMenus &&
                 (p = qtcObjCast<QComboBox>(getParent<2>(widget))) &&
                 !p->isEditable()) {
@@ -1903,7 +1903,7 @@ Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option,
 {
     prePolish(widget);
     bool (Style::*drawFunc)(PrimitiveElement, const QStyleOption*,
-                            QPainter*, const QWidget*) const = NULL;
+                            QPainter*, const QWidget*) const = nullptr;
     switch ((unsigned)element) {
     case PE_IndicatorTabClose:
         drawFunc = &Style::drawPrimitiveIndicatorTabClose;
@@ -5174,7 +5174,7 @@ void Style::drawComplexControl(ComplexControl control, const QStyleOptionComplex
 
             if(!kwin && widget && BLEND_TITLEBAR && qobject_cast<const QMdiSubWindow *>(widget))
             {
-                const QWidget *w=NULL;
+                const QWidget *w=nullptr;
                 if(qobject_cast<const QMainWindow *>(widget))
                     w=widget;
                 else if (static_cast<const QMdiSubWindow *>(widget)->widget())
@@ -5986,7 +5986,7 @@ Style::drawItemText(QPainter *painter, const QRect &rect, int flags,
                     QPalette::ColorRole textRole) const
 {
     if (textRole == QPalette::ButtonText && !opts.stdSidebarButtons) {
-        const QAbstractButton *button = getButton(NULL, painter);
+        const QAbstractButton *button = getButton(nullptr, painter);
         if (button && isMultiTabBarTab(button) && button->isChecked()) {
             QPalette p(pal);
             if (m_inactiveChangeSelectionColor &&
@@ -6955,7 +6955,7 @@ Style::hitTestComplexControl(ComplexControl control,
                              const QPoint &pos, const QWidget *widget) const
 {
     prePolish(widget);
-    m_sbWidget = NULL;
+    m_sbWidget = nullptr;
     switch (control) {
     case CC_ScrollBar:
         if (auto scrollBar = styleOptCast<QStyleOptionSlider>(option)) {
