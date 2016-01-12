@@ -1154,7 +1154,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                 p.setRenderHint(QPainter::Antialiasing, true);
                 p.setPen(use[ORIGINAL_SHADE]);
                 p.drawPath(buildPath(r, WIDGET_OTHER, ROUNDED_ALL, radius));
-                p.setRenderHint(QPainter::Antialiasing, false);
+                QPAINTER_RENDERHIT_AA_MAYBE_OFF(&p);
             }
             if (!(opts.square&SQUARE_POPUP_MENUS))
                 p.setClipRegion(windowMask(r, opts.round>ROUND_SLIGHT),
@@ -2124,7 +2124,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
         painter->translate(0, -1);
         painter->setPen(use[4]);
         painter->drawPath(path);
-        painter->setRenderHint(QPainter::Antialiasing, false);
+        QPAINTER_RENDERHIT_AA_MAYBE_OFF(painter);
         if (reverse) {
             painter->drawLine(r.left() + 50 - 1, r.top(), r.right(), r.top());
             painter->drawLine(r.left() + 20, r.bottom() - 2,
@@ -2517,7 +2517,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
             drawAaLine(painter, r.x() + r.width() - 1, r.y(),
                        r.x() + r.width() - 1, r.y() + r.height() - 1);
         }
-        painter->setRenderHint(QPainter::Antialiasing, false);
+        QPAINTER_RENDERHIT_AA_MAYBE_OFF(painter);
         painter->restore();
         break;
     }
@@ -2608,7 +2608,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                                                      r.width(), 2), true, true);
                     }
                 }
-                painter->setRenderHint(QPainter::Antialiasing, false);
+                QPAINTER_RENDERHIT_AA_MAYBE_OFF(painter);
             } else if (!qtcIsFlat(opts.lvAppearance) && !reverse &&
                        ((State_Enabled | State_Active) == state ||
                         State_Enabled == state)) {
@@ -3687,7 +3687,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                         col.setAlphaF(0.5);
                         painter->setPen(col);
                         drawAaLine(painter, r.left()+1, r.top()+2, r.right()-1, r.top()+2);
-                        painter->setRenderHint(QPainter::Antialiasing, false);
+                        QPAINTER_RENDERHIT_AA_MAYBE_OFF(painter);
                         painter->setClipRect(QRect(r.x(), r.y(), r.width(), highlightBorder));
                         drawBorder(painter, r, option, ROUNDED_ALL, m_highlightCols, WIDGET_TAB_TOP, BORDER_FLAT, false, 3);
                     }
@@ -3772,7 +3772,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                         col.setAlphaF(0.5);
                         painter->setPen(col);
                         drawAaLine(painter, r.left()+1, r.bottom()-2, r.right()-1, r.bottom()-2);
-                        painter->setRenderHint(QPainter::Antialiasing, false);
+                        QPAINTER_RENDERHIT_AA_MAYBE_OFF(painter);
                         painter->setClipRect(QRect(r.x(), r.y()+r.height()-highlightBorder, r.width(), r.y()+r.height()-1));
                         drawBorder(painter, r, option, ROUNDED_ALL, m_highlightCols, WIDGET_TAB_BOT, BORDER_FLAT, false, 3);
                     }
@@ -3850,7 +3850,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                         col.setAlphaF(0.5);
                         painter->setPen(col);
                         drawAaLine(painter, r.left()+2, r.top()+1, r.left()+2, r.bottom()-1);
-                        painter->setRenderHint(QPainter::Antialiasing, false);
+                        QPAINTER_RENDERHIT_AA_MAYBE_OFF(painter);
                         painter->setClipRect(QRect(r.x(), r.y(), highlightBorder, r.height()));
                         drawBorder(painter, r, option, ROUNDED_ALL, m_highlightCols, WIDGET_TAB_TOP, BORDER_FLAT, false, 3);
                     }
@@ -3928,7 +3928,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                         col.setAlphaF(0.5);
                         painter->setPen(col);
                         drawAaLine(painter, r.right()-2, r.top()+1, r.right()-2, r.bottom()-1);
-                        painter->setRenderHint(QPainter::Antialiasing, false);
+                        QPAINTER_RENDERHIT_AA_MAYBE_OFF(painter);
                         painter->setClipRect(QRect(r.x()+r.width()-highlightBorder, r.y(), r.x()+r.width()-1, r.height()));
                         drawBorder(painter, r, option, ROUNDED_ALL, m_highlightCols, WIDGET_TAB_TOP, BORDER_FLAT, false, 3);
                     }
@@ -5258,7 +5258,7 @@ void Style::drawComplexControl(ComplexControl control, const QStyleOptionComplex
                                             ? 6.0
                                             : 2.0));
 
-                painter->setRenderHint(QPainter::Antialiasing, false);
+                QPAINTER_RENDERHIT_AA_MAYBE_OFF(painter);
 
                 if(addLight)
                 {
@@ -5297,7 +5297,7 @@ void Style::drawComplexControl(ComplexControl control, const QStyleOptionComplex
 
                     grad.setColorAt(0, dark);
                     grad.setColorAt(1, m_backgroundCols[QTC_STD_BORDER]);
-                    painter->setPen(QPen(QBrush(grad), 1));
+                    painter->setPen(QPen(QBrush(grad), QPENWIDTH1));
                     painter->drawLine(r.x(), start.y(), r.x(), end.y());
                     painter->drawLine(r.x()+r.width()-1, start.y(), r.x()+r.width()-1, end.y());
 
@@ -5305,13 +5305,13 @@ void Style::drawComplexControl(ComplexControl control, const QStyleOptionComplex
                     {
                         grad.setColorAt(0, light);
                         grad.setColorAt(1, m_backgroundCols[0]);
-                        painter->setPen(QPen(QBrush(grad), 1));
+                        painter->setPen(QPen(QBrush(grad), QPENWIDTH1));
                         painter->drawLine(r.x()+1, start.y(), r.x()+1, end.y());
                     }
                 }
             }
             else
-                painter->setRenderHint(QPainter::Antialiasing, false);
+                QPAINTER_RENDERHIT_AA_MAYBE_OFF(painter);
 
             if(kwin)
             {
