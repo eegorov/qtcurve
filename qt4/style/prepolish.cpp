@@ -92,9 +92,7 @@ Style::prePolish(QWidget *widget) const
         if ((opts.bgndOpacity != 100 && (qtcIsWindow(widget) ||
                                          qtcIsToolTip(widget))) ||
             (opts.dlgOpacity != 100 && qtcIsDialog(widget)) ||
-            (opts.menuBgndOpacity != 100 &&
-             (qobject_cast<QMenu*>(widget) ||
-              widget->inherits("QComboBoxPrivateContainer")))) {
+            (opts.menuBgndOpacity != 100 && qobject_cast<QMenu*>(widget))) {
             props->prePolished = true;
             addAlphaChannel(widget);
             // Set this for better efficiency for now

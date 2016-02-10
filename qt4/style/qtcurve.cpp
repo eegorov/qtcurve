@@ -147,6 +147,12 @@ extern QString (*qt_filedialog_save_filename_hook)(
 
 namespace QtCurve {
 
+static inline void
+setTranslucentBackground(QWidget *widget)
+{
+    widget->setAttribute(Qt::WA_TranslucentBackground);
+}
+
 #if defined FIX_DISABLED_ICONS && defined QTC_QT4_ENABLE_KDE
 static inline QPixmap
 getIconPixmap(const QIcon &icon, const QSize &size,
@@ -1851,13 +1857,18 @@ Style::polish(QWidget *widget)
                qtcCheckType(getParent<2>(widget), "KFileWidget")) {
         ((QDockWidget*)widget)
             ->setTitleBarWidget(new QtCurveDockWidgetTitleBar(widget));
+    } else if ((!qtcIsFlatBgnd(opts.menuBgndAppearance) ||
+              100 != opts.menuBgndOpacity ||
+              !(opts.square & SQUARE_POPUP_MENUS)) &&
+             widget->inherits("QComboBoxPrivateContainer") &&
+             !widget->testAttribute(Qt::WA_TranslucentBackground)) {
+        setTranslucentBackground(widget);
     }
 
-    if (widget->inherits("QTipLabel") &&
-        !qtcIsFlat(opts.tooltipAppearance)) {
+    if (widget->inherits("QTipLabel") && !qtcIsFlat(opts.tooltipAppearance)) {
         widget->setBackgroundRole(QPalette::NoRole);
-        // TODO: turn this into addAlphaChannel
         widget->setAttribute(Qt::WA_TranslucentBackground);
+        setTranslucentBackground(widget);
     }
 
     if (!widget->isWindow())
@@ -1905,8 +1916,11 @@ Style::polish(QWidget *widget)
             opts.menuBgndOpacity != 100 ||
             !POPUP_MENUS_SQUARE(opts)) {
             widget->installEventFilter(this);
-            // Set WA_NoSystemBackground or a square background will be drawn.
-            widget->setAttribute(Qt::WA_NoSystemBackground);
+            if ((100 != opts.menuBgndOpacity ||
+                 !(opts.square & SQUARE_POPUP_MENUS)) &&
+                !widget->testAttribute(Qt::WA_TranslucentBackground)) {
+                setTranslucentBackground(widget);
+            }
         }
         if (opts.lighterPopupMenuBgnd || opts.shadePopupMenu) {
             QPalette pal = widget->palette();
@@ -1923,11 +1937,14 @@ Style::polish(QWidget *widget)
     }
 
     if ((!qtcIsFlatBgnd(opts.menuBgndAppearance) ||
-         opts.menuBgndOpacity != 100 || !POPUP_MENUS_SQUARE(opts)) &&
+         100 != opts.menuBgndOpacity || !(opts.square & SQUARE_POPUP_MENUS)) &&
         widget->inherits("QComboBoxPrivateContainer")) {
         widget->installEventFilter(this);
-        // Set WA_NoSystemBackground or a square background will be drawn.
-        widget->setAttribute(Qt::WA_NoSystemBackground);
+        if ((100 != opts.menuBgndOpacity ||
+             !(opts.square & SQUARE_POPUP_MENUS)) &&
+            !widget->testAttribute(Qt::WA_TranslucentBackground)) {
+            setTranslucentBackground(widget);
+        }
     }
 
     bool parentIsToolbar(false);
@@ -2303,6 +2320,7 @@ void Style::unpolish(QWidget *widget)
 
     if (qobject_cast<QMenu*>(widget)) {
         widget->setAttribute(Qt::WA_NoSystemBackground, false);
+        widget->setAttribute(Qt::WA_TranslucentBackground, false);
         widget->clearMask();
         if (opts.lighterPopupMenuBgnd || opts.shadePopupMenu) {
             widget->setPalette(QApplication::palette());
@@ -2313,6 +2331,7 @@ void Style::unpolish(QWidget *widget)
          100 != opts.menuBgndOpacity || !POPUP_MENUS_SQUARE(opts)) &&
         widget->inherits("QComboBoxPrivateContainer")) {
         widget->setAttribute(Qt::WA_NoSystemBackground, false);
+        widget->setAttribute(Qt::WA_TranslucentBackground, false);
         widget->clearMask();
     }
 
@@ -2551,9 +2570,6 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                 opt.init(widget);
                 const QColor *use = popupMenuCols(&opt);
 
-                // Qt4 does not clear the background if the attribute
-                // Qt::WA_NoSystemBackground is not set on the widget.
-                p.setCompositionMode(QPainter::CompositionMode_Source);
                 p.setClipRegion(static_cast<QPaintEvent*>(event)->region());
                 if (!opts.popupBorder) {
                     p.setRenderHint(QPainter::Antialiasing, true);
@@ -2561,8 +2577,8 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                     p.drawPath(buildPath(r, WIDGET_OTHER, ROUNDED_ALL, radius));
                     p.setRenderHint(QPainter::Antialiasing, false);
                 }
-                if (!POPUP_MENUS_SQUARE(opts)) // && !isCombo)
-                    p.setClipRegion(windowMask(r, opts.round > ROUND_SLIGHT),
+                if (!(opts.square & SQUARE_POPUP_MENUS)) // && !isCombo)
+                    p.setClipRegion(windowMask(r, opts.round>ROUND_SLIGHT),
                                     Qt::IntersectClip);
 
                 // In case the gradient uses alpha, we need to fill with
@@ -2592,17 +2608,19 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                         QRect ri(r.adjusted(1, 1, -1, -1));
 
                         p.setPen(use[0]);
-                        if (border == GB_LIGHT) {
-                            if(POPUP_MENUS_SQUARE(opts)) // || isCombo)
+                        if(GB_LIGHT==border)
+                        {
+                            if(opts.square&SQUARE_POPUP_MENUS) // || isCombo)
                                 drawRect(&p, ri);
                             else
                                 p.drawPath(buildPath(ri, WIDGET_OTHER, ROUNDED_ALL, radius-1.0));
-                        } else if (POPUP_MENUS_SQUARE(opts)) {
-                            if (GB_3D != border) {
-                                p.drawLine(ri.x(), ri.y(),
-                                           ri.x() + ri.width() - 1,  ri.y());
-                                p.drawLine(ri.x(), ri.y(), ri.x(),
-                                           ri.y() + ri.height() - 1);
+                        }
+                        else if(opts.square&SQUARE_POPUP_MENUS) // || isCombo)
+                        {
+                            if(GB_3D!=border)
+                            {
+                                p.drawLine(ri.x(), ri.y(), ri.x()+ri.width()-1,  ri.y());
+                                p.drawLine(ri.x(), ri.y(), ri.x(), ri.y()+ri.height()-1);
                             }
                             p.setPen(use[FRAME_DARK_SHADOW]);
                             p.drawLine(ri.x(), ri.y()+ri.height()-1, ri.x()+ri.width()-1,  ri.y()+ri.height()-1);
