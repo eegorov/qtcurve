@@ -3201,8 +3201,13 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
             drawControl(CE_PushButtonBevel, btn, painter, widget);
 
             QStyleOptionButton subopt(*btn);
+            if (!btn->icon.isNull()
+                && !(styleHint(SH_DialogButtonBox_ButtonsHaveIcons, btn, widget) || btn->text.isEmpty())) {
+                // remove the icon from our local QStyleOptionButton copy
+                subopt.icon = QIcon();
+            }
 
-            subopt.rect = subElementRect(SE_PushButtonContents, btn, widget);
+            subopt.rect = subElementRect(SE_PushButtonContents, &subopt, widget);
             drawControl(CE_PushButtonLabel, &subopt, painter, widget);
 
             if (state & State_HasFocus &&
@@ -3255,7 +3260,8 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
             if (!styleHint(SH_UnderlineShortcut, button, widget))
                 tf |= Qt::TextHideMnemonic;
 
-            if (!button->icon.isNull())
+            if (!button->icon.isNull()
+                && (styleHint(SH_DialogButtonBox_ButtonsHaveIcons, button, widget) || button->text.isEmpty()))
             {
                 //Center both icon and text
                 QIcon::Mode mode(button->state&State_Enabled ? QIcon::Normal : QIcon::Disabled);
@@ -6037,8 +6043,9 @@ QSize Style::sizeFromContents(ContentsType type, const QStyleOption *option, con
             if (!opts.stdBtnSizes) {
                 // Cant rely on AutoDefaultButton
                 //   - as VirtualBox does not set this!!!
-                if (qtcCheckType<QDialogButtonBox>(getParent(widget)) ||
-                    qtcCheckType(getParent(widget), "KFileWidget")) {
+                bool allowIcon = styleHint(SH_DialogButtonBox_ButtonsHaveIcons, btn, widget) || btn->text.isEmpty();
+                if (allowIcon && (qtcCheckType<QDialogButtonBox>(getParent(widget)) ||
+                    qtcCheckType(getParent(widget), "KFileWidget"))) {
                     int iconHeight = (btn->icon.isNull() ?
                                       btn->iconSize.height() : 16);
                     if (size.height() < iconHeight + 2) {
