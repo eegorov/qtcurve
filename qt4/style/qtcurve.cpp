@@ -141,6 +141,13 @@ typedef QString (*_qt_filedialog_save_filename_hook)(QWidget * parent, const QSt
 extern _qt_filedialog_save_filename_hook qt_filedialog_save_filename_hook;
 #endif
 
+#ifndef Q_OS_MAC
+#define POPUP_MENUS_SQUARE(opts)    ((opts).square & SQUARE_POPUP_MENUS)
+#else
+// prevent a rendering glitch in popup menus:
+#define POPUP_MENUS_SQUARE(opts)    true
+#endif
+
 namespace QtCurve {
 
 static inline void
@@ -1894,7 +1901,7 @@ Style::polish(QWidget *widget)
                 QPalette pal(widget->palette());
                 QColor col(popupMenuCols()[ORIGINAL_SHADE]);
 
-                if(!qtcIsFlatBgnd(opts.menuBgndAppearance) || 100!=opts.menuBgndOpacity || !(opts.square&SQUARE_POPUP_MENUS))
+                if(!qtcIsFlatBgnd(opts.menuBgndAppearance) || 100!=opts.menuBgndOpacity || !POPUP_MENUS_SQUARE(opts))
                     col.setAlphaF(0);
 
                 pal.setBrush(QPalette::Active, QPalette::Base, col);
@@ -1908,7 +1915,7 @@ Style::polish(QWidget *widget)
     if (qobject_cast<QMenu*>(widget)) {
         if (!qtcIsFlatBgnd(opts.menuBgndAppearance) ||
             opts.menuBgndOpacity != 100 ||
-            !(opts.square & SQUARE_POPUP_MENUS)) {
+            !POPUP_MENUS_SQUARE(opts)) {
             widget->installEventFilter(this);
             if ((100 != opts.menuBgndOpacity ||
                  !(opts.square & SQUARE_POPUP_MENUS)) &&
@@ -1931,7 +1938,7 @@ Style::polish(QWidget *widget)
     }
 
     if ((!qtcIsFlatBgnd(opts.menuBgndAppearance) ||
-         100 != opts.menuBgndOpacity || !(opts.square & SQUARE_POPUP_MENUS)) &&
+         opts.menuBgndOpacity != 100 || !POPUP_MENUS_SQUARE(opts)) &&
         widget->inherits("QComboBoxPrivateContainer")) {
         widget->installEventFilter(this);
         if ((100 != opts.menuBgndOpacity ||
@@ -2322,7 +2329,7 @@ void Style::unpolish(QWidget *widget)
     }
 
     if ((!qtcIsFlatBgnd(opts.menuBgndAppearance) ||
-         100 != opts.menuBgndOpacity || !(opts.square & SQUARE_POPUP_MENUS)) &&
+         100 != opts.menuBgndOpacity || !POPUP_MENUS_SQUARE(opts)) &&
         widget->inherits("QComboBoxPrivateContainer")) {
         widget->setAttribute(Qt::WA_NoSystemBackground, false);
         widget->setAttribute(Qt::WA_TranslucentBackground, false);
@@ -2480,7 +2487,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
         case QEvent::Move:
             return false; // just for performance - they can occur really often
         case QEvent::Resize:
-            if (!(opts.square & SQUARE_POPUP_MENUS) &&
+            if (!POPUP_MENUS_SQUARE(opts) &&
                 object->inherits("QComboBoxPrivateContainer")) {
                 QWidget *widget = static_cast<QWidget*>(object);
                 if (Utils::hasAlphaChannel(widget)) {
@@ -2548,7 +2555,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
             if ((!qtcIsFlatBgnd(opts.menuBgndAppearance) ||
                  opts.menuBgndImage.type != IMG_NONE ||
                  opts.menuBgndOpacity != 100 ||
-                 !(opts.square & SQUARE_POPUP_MENUS)) &&
+                 !POPUP_MENUS_SQUARE(opts)) &&
                 (qobject_cast<QMenu*>(object) ||
                  (object->inherits("QComboBoxPrivateContainer")))) {
                 QWidget *widget = qtcToWidget(object);
@@ -2566,8 +2573,13 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                     p.drawPath(buildPath(r, WIDGET_OTHER, ROUNDED_ALL, radius));
                     p.setRenderHint(QPainter::Antialiasing, false);
                 }
+<<<<<<< 923fa17ca46d5856d11c2782b44a1c693b1386e7
                 if (!(opts.square & SQUARE_POPUP_MENUS)) // && !isCombo)
                     p.setClipRegion(windowMask(r, opts.round>ROUND_SLIGHT),
+=======
+                if (!POPUP_MENUS_SQUARE(opts)) // && !isCombo)
+                    p.setClipRegion(windowMask(r, opts.round > ROUND_SLIGHT),
+>>>>>>> [OS X/Qt4] prevent menu rendering artefacts
                                     Qt::IntersectClip);
 
                 // In case the gradient uses alpha, we need to fill with
@@ -2584,7 +2596,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                     p.setPen(use[QTC_STD_BORDER]);
                     // For now dont round combos - getting weird effects with
                     // shadow/clipping in Gtk2 style :-(
-                    if (opts.square & SQUARE_POPUP_MENUS) {
+                    if (POPUP_MENUS_SQUARE(opts)) {
                         drawRect(&p, r);
                     } else {
                         p.setRenderHint(QPainter::Antialiasing, true);
@@ -2597,6 +2609,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                         QRect ri(r.adjusted(1, 1, -1, -1));
 
                         p.setPen(use[0]);
+<<<<<<< 923fa17ca46d5856d11c2782b44a1c693b1386e7
                         if(GB_LIGHT==border)
                         {
                             if(opts.square&SQUARE_POPUP_MENUS) // || isCombo)
@@ -2610,6 +2623,19 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                             {
                                 p.drawLine(ri.x(), ri.y(), ri.x()+ri.width()-1,  ri.y());
                                 p.drawLine(ri.x(), ri.y(), ri.x(), ri.y()+ri.height()-1);
+=======
+                        if (border == GB_LIGHT) {
+                            if(POPUP_MENUS_SQUARE(opts)) // || isCombo)
+                                drawRect(&p, ri);
+                            else
+                                p.drawPath(buildPath(ri, WIDGET_OTHER, ROUNDED_ALL, radius-1.0));
+                        } else if (POPUP_MENUS_SQUARE(opts)) {
+                            if (GB_3D != border) {
+                                p.drawLine(ri.x(), ri.y(),
+                                           ri.x() + ri.width() - 1,  ri.y());
+                                p.drawLine(ri.x(), ri.y(), ri.x(),
+                                           ri.y() + ri.height() - 1);
+>>>>>>> [OS X/Qt4] prevent menu rendering artefacts
                             }
                             p.setPen(use[FRAME_DARK_SHADOW]);
                             p.drawLine(ri.x(), ri.y()+ri.height()-1, ri.x()+ri.width()-1,  ri.y()+ri.height()-1);
@@ -2706,7 +2732,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
                     m_timer.start();
                     m_progressBarAnimateTimer = startTimer(1000 / constProgressBarFps);
                 }
-            } else if(!(opts.square & SQUARE_POPUP_MENUS) &&
+            } else if(!POPUP_MENUS_SQUARE(opts) &&
                       object->inherits("QComboBoxPrivateContainer")) {
                 QWidget *widget = static_cast<QWidget*>(object);
                 if (Utils::hasAlphaChannel(widget)) {
@@ -2954,7 +2980,7 @@ int Style::pixelMetric(PixelMetric metric, const QStyleOption *option, const QWi
             return 0;
         case PM_DefaultFrameWidth:
             if ((/*!opts.popupBorder || */opts.gtkComboMenus) && widget && widget->inherits("QComboBoxPrivateContainer"))
-                return opts.gtkComboMenus ? (opts.borderMenuitems || !(opts.square&SQUARE_POPUP_MENUS) ? 2 : 1) : 0;
+                return opts.gtkComboMenus ? (opts.borderMenuitems || !POPUP_MENUS_SQUARE(opts) ? 2 : 1) : 0;
 
             if ((!opts.gtkScrollViews || (opts.square&SQUARE_SCROLLVIEW)) && isKateView(widget))
                 return (opts.square&SQUARE_SCROLLVIEW) ? 1 : 0;
@@ -2968,7 +2994,7 @@ int Style::pixelMetric(PixelMetric metric, const QStyleOption *option, const QWi
                     (!opts.highlightScrollViews) ? 1 : 2;
 
             if (!qtcDrawMenuBorder(opts) && !opts.borderMenuitems &&
-                opts.square & SQUARE_POPUP_MENUS &&
+                POPUP_MENUS_SQUARE(opts) &&
                 qobject_cast<const QMenu*>(widget)) {
                 return 1;
             }
@@ -3140,7 +3166,7 @@ int Style::styleHint(StyleHint hint, const QStyleOption *option, const QWidget *
         case SH_ToolTip_Mask:
         case SH_Menu_Mask:
             if ((SH_ToolTip_Mask == hint && (opts.square & SQUARE_TOOLTIPS)) ||
-                (SH_Menu_Mask == hint && (opts.square & SQUARE_POPUP_MENUS))) {
+                (SH_Menu_Mask == hint && POPUP_MENUS_SQUARE(opts))) {
                 return BaseStyle::styleHint(hint, option, widget, returnData);
             } else {
                 if (!Utils::hasAlphaChannel(widget) &&
@@ -3203,7 +3229,7 @@ int Style::styleHint(StyleHint hint, const QStyleOption *option, const QWidget *
         case SH_ToolButton_PopupDelay:
             return 250;
         case SH_ComboBox_PopupFrameStyle:
-            return opts.popupBorder || !(opts.square&SQUARE_POPUP_MENUS) ? QFrame::StyledPanel|QFrame::Plain : QFrame::NoFrame;
+            return opts.popupBorder || !POPUP_MENUS_SQUARE(opts) ? QFrame::StyledPanel|QFrame::Plain : QFrame::NoFrame;
         case SH_TabBar_Alignment:
             return Qt::AlignLeft;
         case SH_Header_ArrowAlignment:
@@ -3909,7 +3935,7 @@ void Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option, 
                        qobject_cast<const QComboBox*>(widget->parent())) {
                 if(opts.gtkComboMenus && !((QComboBox*)(widget->parent()))->isEditable())
                     drawPrimitive(PE_FrameMenu, option, painter, widget);
-                else if(opts.square&SQUARE_POPUP_MENUS)
+                else if(POPUP_MENUS_SQUARE(opts))
                 {
                     const QColor *use(APP_KRUNNER==theThemedApp ? m_backgroundCols : backgroundColors(option));
 
@@ -4142,7 +4168,7 @@ void Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option, 
             if(!opts.drawStatusBarFrames)
                 break;
         case PE_FrameMenu:
-            if((opts.square&SQUARE_POPUP_MENUS) &&
+            if(POPUP_MENUS_SQUARE(opts) &&
                 (qtcIsFlatBgnd(opts.menuBgndAppearance) ||
                 (opts.gtkComboMenus && widget && widget->parent() && qobject_cast<const QComboBox*>(widget->parent()))))
             {
@@ -6080,7 +6106,7 @@ void Style::drawControl(ControlElement element, const QStyleOption *option, QPai
                 }
 
                 if(active)
-                    drawMenuItem(painter, !opts.roundMbTopOnly && !(opts.square&SQUARE_POPUP_MENUS) ? r.adjusted(1, 1, -1, -1) : r,
+                    drawMenuItem(painter, !opts.roundMbTopOnly && !POPUP_MENUS_SQUARE(opts) ? r.adjusted(1, 1, -1, -1) : r,
                                  option, MENU_BAR,
                                  (down || APP_OPENOFFICE==theThemedApp) && opts.roundMbTopOnly ? ROUNDED_TOP : ROUNDED_ALL,
                                  opts.useHighlightForMenu && (opts.colorMenubarMouseOver || down || APP_OPENOFFICE==theThemedApp)
@@ -12042,7 +12068,7 @@ void Style::drawMenuItem(QPainter *p, const QRect &r, const QStyleOption *option
     else
     {
         // For now dont round combos - getting weird effects with shadow/clipping in Gtk2 style :-(
-        if(/*MENU_COMBO==type || */opts.square&SQUARE_POPUP_MENUS)
+        if(/*MENU_COMBO==type || */POPUP_MENUS_SQUARE(opts))
             drawBevelGradient(cols[fill], p, r, true, false, opts.menuitemAppearance, WIDGET_MENU_ITEM);
         else
         {
