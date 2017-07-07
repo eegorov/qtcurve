@@ -34,6 +34,7 @@ struct _QtcQWidgetProps {
         opacity(100),
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
         prePolishing(false),
+        ensuringPolish(false),
 #else
         prePolished(false),
         prePolishStarted(false),
@@ -45,6 +46,7 @@ struct _QtcQWidgetProps {
     int opacity;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
     bool prePolishing: 1;
+    bool ensuringPolish: 1;
 #else
     bool prePolished: 1;
     bool prePolishStarted: 1;

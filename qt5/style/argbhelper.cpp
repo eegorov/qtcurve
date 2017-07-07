@@ -21,33 +21,45 @@
 
 #include "argbhelper.h"
 #include <qtcurve-utils/qtutils.h>
+#include <qtcurve-utils/qtprops.h>
 
 #include <QWindow>
+#include <QMenu>
 #include "private/qwidget_p.h"
 
 namespace QtCurve {
 __attribute__((hot)) void
 addAlphaChannel(QWidget *widget)
 {
-    QTC_RET_IF_FAIL(!qtcGetWid(widget));
-    // Set this for better efficiency for now
-    widget->setAutoFillBackground(false);
-    QWindow *window = widget->windowHandle();
-    QWidgetPrivate *widgetPrivate =
-        static_cast<QWidgetPrivate*>(QObjectPrivate::get(widget));
-    widgetPrivate->updateIsOpaque();
-    if (!window) {
-        widgetPrivate->createTLExtra();
-        widgetPrivate->createTLSysExtra();
-        window = widget->windowHandle();
-    }
-    if (window) {
-        // Maybe we can register event filters and/or listen for signals
-        // like parent change or screen change on the QWidgetWindow
-        // so that we have a better change to update the alpha info
-        QSurfaceFormat format = window->format();
-        format.setAlphaBufferSize(8);
-        window->setFormat(format);
+    if (qobject_cast<QMenu*>(widget)) {
+        QtcQWidgetProps props(widget);
+        widget->setAttribute(Qt::WA_TranslucentBackground);
+        if (!props->ensuringPolish) {
+            props->ensuringPolish = true;
+            widget->ensurePolished();
+            props->ensuringPolish = false;
+        }
+    } else {
+        QTC_RET_IF_FAIL(!qtcGetWid(widget));
+        // Set this for better efficiency for now
+        widget->setAutoFillBackground(false);
+        QWindow *window = widget->windowHandle();
+        QWidgetPrivate *widgetPrivate =
+            static_cast<QWidgetPrivate*>(QObjectPrivate::get(widget));
+        widgetPrivate->updateIsOpaque();
+        if (!window) {
+            widgetPrivate->createTLExtra();
+            widgetPrivate->createTLSysExtra();
+            window = widget->windowHandle();
+        }
+        if (window) {
+            // Maybe we can register event filters and/or listen for signals
+            // like parent change or screen change on the QWidgetWindow
+            // so that we have a better change to update the alpha info
+            QSurfaceFormat format = window->format();
+            format.setAlphaBufferSize(8);
+            window->setFormat(format);
+        }
     }
 }
 
