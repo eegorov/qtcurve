@@ -22,8 +22,10 @@
 
 #include "qtcurve_p.h"
 #include "qtcurve_plugin.h"
+#include "qtcurve_fonthelper.h"
 #include <qtcurve-utils/qtprops.h>
 
+#include <qglobal.h>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include "windowmanager.h"
@@ -100,6 +102,26 @@
 #include <qtcurve-utils/color.h>
 
 namespace QtCurve {
+
+class Style::DBusHelper {
+public:
+    DBusHelper()
+        : m_dBus(0)
+        , m_dbusConnected(false)
+    {}
+    ~DBusHelper()
+    {
+        if (m_dBus) {
+            m_dBus->disconnect();
+            m_dBus->deleteLater();
+            m_dBus = 0;
+        }
+    }
+
+    std::once_flag m_aboutToQuitInit;
+    QDBusInterface *m_dBus;
+    bool m_dbusConnected;
+};
 
 static inline void setPainterPen(QPainter *p, const QColor &col, const qreal width=1.0)
 {
@@ -321,6 +343,8 @@ static void parseWindowLine(const QString &line, QList<int> &data)
 #endif
 
 Style::Style() :
+    m_dBusHelper(new DBusHelper()),
+    m_fntHelper(new FontHelper()),
     m_popupMenuCols(0L),
     m_sliderCols(0L),
     m_defBtnCols(0L),
@@ -343,13 +367,11 @@ Style::Style() :
     m_progressBarAnimateTimer(0),
     m_animateStep(0),
     m_titlebarHeight(0),
-    m_dBus(0),
     m_shadowHelper(new ShadowHelper(this)),
     m_sViewSBar(0L),
     m_windowManager(new WindowManager(this)),
     m_blurHelper(new BlurHelper(this)),
-    m_shortcutHandler(new ShortcutHandler(this)),
-    m_dbusConnected(false)
+    m_shortcutHandler(new ShortcutHandler(this))
 {
     const char *env = getenv(QTCURVE_PREVIEW_CONFIG);
 #ifdef QTC_QT5_ENABLE_KDE
@@ -394,6 +416,23 @@ void Style::init(bool initial)
 #ifdef QTC_QT5_ENABLE_KDE
             connect(KWindowSystem::self(), &KWindowSystem::compositingChanged, this, &Style::compositingToggled);
 #endif
+            // prepare the cleanup handler
+            if (QCoreApplication::instance()) {
+                std::call_once(m_dBusHelper->m_aboutToQuitInit, [this] {
+                    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, this, [this] () {
+                            // disconnect from the session DBus. We're no longer interested in the
+                            // information it might send when the app we're serving is shutting down.
+                            disconnectDBus();
+                            // Stop listening to select signals. We shouldn't stop emitting signals
+                            // (like QObject::destroyed) but we can reduce the likelihood that pending
+                            // signals will be sent to us post-mortem.
+#ifdef QTC_QT5_ENABLE_KDE
+                            disconnect(KWindowSystem::self(), &KWindowSystem::compositingChanged,
+                                       this, &Style::compositingToggled);
+#endif
+                        } );
+                } );
+            }
         }
     }
 
@@ -474,6 +513,7 @@ void Style::init(bool initial)
             m_comboBtnCols = m_sliderCols;
             break;
         }
+        QTC_FALLTHROUGH();
     case SHADE_CUSTOM:
         if (opts.shadeSliders == SHADE_CUSTOM &&
             opts.customSlidersColor == opts.customComboBtnColor) {
@@ -510,6 +550,7 @@ void Style::init(bool initial)
             m_sortedLvColors = m_comboBtnCols;
             break;
         }
+        QTC_FALLTHROUGH();
     case SHADE_CUSTOM:
         if (opts.shadeSliders == SHADE_CUSTOM &&
             opts.customSlidersColor == opts.customSortedLvColor) {
@@ -663,14 +704,11 @@ void Style::init(bool initial)
 
 void Style::connectDBus()
 {
-    if (m_dbusConnected)
+    if (m_dBusHelper->m_dbusConnected)
         return;
     auto bus = QDBusConnection::sessionBus();
     if (bus.isConnected()) {
-        m_dbusConnected = true;
-        if (QCoreApplication::instance()) {
-            connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, this, &Style::disconnectDBus);
-        }
+        m_dBusHelper->m_dbusConnected = true;
         bus.connect(QString(), "/KGlobalSettings", "org.kde.KGlobalSettings",
                     "notifyChange", this, SLOT(kdeGlobalSettingsChange(int, int)));
 #ifndef QTC_QT5_ENABLE_KDE
@@ -699,12 +737,15 @@ void Style::connectDBus()
 
 void Style::disconnectDBus()
 {
-    if (!m_dbusConnected)
+    if (!m_dBusHelper->m_dbusConnected)
         return;
-    m_dbusConnected = false;
     auto bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected())
+        return;
+    m_dBusHelper->m_dbusConnected = false;
     if (getenv("QTCURVE_DEBUG")) {
         qWarning() << Q_FUNC_INFO << this << "Disconnecting from" << bus.name() << "/" << bus.baseService();
+        dumpObjectInfo();
     }
     bus.disconnect(QString(), "/KGlobalSettings", "org.kde.KGlobalSettings",
                    "notifyChange",
@@ -739,9 +780,8 @@ Style::~Style()
         m_plugin->m_styleInstances.removeAll(this);
     }
     freeColors();
-    if (m_dBus) {
-        delete m_dBus;
-    }
+    delete m_fntHelper;
+    delete m_dBusHelper;
 }
 
 void Style::freeColor(QSet<QColor *> &freedColors, QColor **cols)
@@ -4467,10 +4507,10 @@ void Style::emitMenuSize(QWidget *w, unsigned short size, bool force)
         if (oldSize != size) {
             w->setProperty(constMenuSizeProperty, size);
             qtcX11SetMenubarSize(wid, size);
-            if(!m_dBus)
-                m_dBus = new QDBusInterface("org.kde.kwin", "/QtCurve",
+            if(!m_dBusHelper->m_dBus)
+                m_dBusHelper->m_dBus = new QDBusInterface("org.kde.kwin", "/QtCurve",
                                              "org.kde.QtCurve");
-            m_dBus->call(QDBus::NoBlock, "menuBarSize",
+            m_dBusHelper->m_dBus->call(QDBus::NoBlock, "menuBarSize",
                           (unsigned int)wid, (int)size);
         }
     }
@@ -4479,10 +4519,10 @@ void Style::emitMenuSize(QWidget *w, unsigned short size, bool force)
 void Style::emitStatusBarState(QStatusBar *sb)
 {
     if (opts.statusbarHiding & HIDE_KWIN) {
-        if (!m_dBus)
-            m_dBus = new QDBusInterface("org.kde.kwin", "/QtCurve",
+        if (!m_dBusHelper->m_dBus)
+            m_dBusHelper->m_dBus = new QDBusInterface("org.kde.kwin", "/QtCurve",
                                         "org.kde.QtCurve");
-        m_dBus->call(QDBus::NoBlock, "statusBarState",
+        m_dBusHelper->m_dBus->call(QDBus::NoBlock, "statusBarState",
                      (unsigned int)qtcGetWid(sb->window()),
                      sb->isVisible());
     }

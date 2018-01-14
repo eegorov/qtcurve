@@ -1075,11 +1075,11 @@ void Style::init(bool initial)
             m_comboBtnCols=m_highlightCols;
             break;
         case SHADE_BLEND_SELECTED:
-            if(opts.shadeSliders==SHADE_BLEND_SELECTED)
-            {
+            if (opts.shadeSliders==SHADE_BLEND_SELECTED) {
                 m_comboBtnCols=m_sliderCols;
                 break;
             }
+            QTC_FALLTHROUGH();
         case SHADE_CUSTOM:
             if(opts.shadeSliders==SHADE_CUSTOM && opts.customSlidersColor==opts.customComboBtnColor)
             {
@@ -1119,6 +1119,7 @@ void Style::init(bool initial)
                 m_sortedLvColors=m_comboBtnCols;
                 break;
             }
+            QTC_FALLTHROUGH();
         case SHADE_CUSTOM:
             if(opts.shadeSliders==SHADE_CUSTOM && opts.customSlidersColor==opts.customSortedLvColor)
             {
@@ -2712,10 +2713,15 @@ bool Style::eventFilter(QObject *object, QEvent *event)
             if(bar)
             {
                 m_progressBars.insert(bar);
-                if (1==m_progressBars.size())
-                {
-                    m_timer.start();
-                    m_progressBarAnimateTimer = startTimer(1000 / constProgressBarFps);
+                if (!m_progressBarAnimateTimer) {
+                    if (opts.animatedProgress || (0 == bar->minimum() && 0 == bar->maximum())) {
+                        // we know we'll need a timer, start it at once
+                        if (m_timer.isNull()) {
+                            m_timer.start();
+                        }
+                        m_progressBarAnimateFps = constProgressBarFps;
+                        m_progressBarAnimateTimer = startTimer(1000/m_progressBarAnimateFps);
+                    }
                 }
             } else if(!POPUP_MENUS_SQUARE(opts) &&
                       object->inherits("QComboBoxPrivateContainer")) {
@@ -2747,6 +2753,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
             }
             break;
         }
+        case QEvent::Close:
         case QEvent::Destroy:
         case QEvent::Hide: {
             if((BLEND_TITLEBAR || opts.windowBorder&WINDOW_BORDER_USE_MENUBAR_COLOR_FOR_TITLEBAR || opts.menubarHiding&HIDE_KWIN) &&
@@ -2839,6 +2846,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
 void Style::timerEvent(QTimerEvent *event)
 {
     if (event->timerId() == m_progressBarAnimateTimer) {
+        bool hasAnimation = false;
         m_animateStep = m_timer.elapsed() / (1000 / constProgressBarFps);
         foreach (QProgressBar *bar, const_(m_progressBars)) {
             if ((opts.animatedProgress && 0 == m_animateStep % 2 &&
@@ -2846,7 +2854,13 @@ void Style::timerEvent(QTimerEvent *event)
                  bar->value() != bar->maximum()) ||
                 (0 == bar->minimum() && 0 == bar->maximum())) {
                 bar->update();
+                hasAnimation = true;
             }
+        }
+        if (Q_UNLIKELY(!hasAnimation && m_progressBarAnimateFps == constProgressBarFps)) {
+            // go back to "idling frequency" mode.
+            killTimer(m_progressBarAnimateTimer);
+            m_progressBarAnimateTimer = 0;
         }
     }
 
@@ -4152,6 +4166,7 @@ void Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option, 
         case PE_FrameStatusBar:
             if(!opts.drawStatusBarFrames)
                 break;
+            QTC_FALLTHROUGH();
         case PE_FrameMenu:
             if(POPUP_MENUS_SQUARE(opts) &&
                 (qtcIsFlatBgnd(opts.menuBgndAppearance) ||
@@ -4211,6 +4226,7 @@ void Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option, 
                 }
                 break;
             }
+            QTC_FALLTHROUGH();
         case PE_IndicatorButtonDropDown: // This should never be called, but just in case - draw as a normal toolbutton...
         {
             bool dwt(widget && widget->inherits("QDockWidgetTitleButton")),
@@ -4339,6 +4355,7 @@ void Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option, 
             r.setY(r.y()+((r.height()-opts.crSize)/2)-1);
             r.setWidth(opts.crSize);
             r.setHeight(opts.crSize);
+            QTC_FALLTHROUGH();
         case PE_IndicatorMenuCheckMark:
         case PE_IndicatorCheckBox:
         {
@@ -4512,6 +4529,7 @@ void Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option, 
             r.setY(r.y()+((r.height()-opts.crSize)/2)-1);
             r.setWidth(opts.crSize);
             r.setHeight(opts.crSize);
+            QTC_FALLTHROUGH();
         case PE_IndicatorRadioButton:
         {
             bool isOO(isOOWidget(widget)),
@@ -5626,8 +5644,7 @@ void Style::drawControl(ControlElement element, const QStyleOption *option, QPai
                         switch(opts.titlebarAlignment)
                         {
                             case ALIGN_FULL_CENTER:
-                                if(!verticalTitleBar && !reverse)
-                                {
+                                if (!verticalTitleBar && !reverse) {
                                     QFontMetrics fm(painter->fontMetrics());
                                     int          width=fm.boundingRect(title).width();
 
@@ -5640,6 +5657,7 @@ void Style::drawControl(ControlElement element, const QStyleOption *option, QPai
                                         textOpt|=Qt::AlignRight;
                                     break;
                                 }
+                                QTC_FALLTHROUGH();
                             case ALIGN_CENTER:
                                 textOpt|=Qt::AlignHCenter;
                                 break;
@@ -5932,6 +5950,15 @@ void Style::drawControl(ControlElement element, const QStyleOption *option, QPai
                     reverse = !reverse;
 
                 painter->save();
+
+                if (!m_progressBarAnimateTimer && (opts.animatedProgress || indeterminate)) {
+                    if (m_timer.isNull()) {
+                        m_timer.start();
+                    }
+                    // now we'll need a timer, start it at the regular frequency
+                    m_progressBarAnimateFps = constProgressBarFps;
+                    m_progressBarAnimateTimer = const_cast<Style*>(this)->startTimer(1000/m_progressBarAnimateFps);
+                }
 
                 if(indeterminate) //Busy indicator
                 {
