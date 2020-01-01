@@ -2034,7 +2034,7 @@ QPalette Style::standardPalette() const
     return ParentStyleClass::standardPalette();
 }
 
-static bool initFontTickData(Options &opts, QFont font, const QWidget *widget=0)
+void Style::initFontTickData(const QFont &font, const QWidget*) const
 {
     if (opts.onlyTicksInMenu && opts.fontTickWidth <= 0) {
         opts.tickFont = font;
@@ -2047,11 +2047,7 @@ static bool initFontTickData(Options &opts, QFont font, const QWidget *widget=0)
         // adjust the size so the tickmark looks just about right
         opts.tickFont.setPointSizeF(opts.tickFont.pointSizeF() * 1.3);
         opts.fontTickWidth = QFontMetrics(opts.tickFont).width(opts.menuTick);
-        // qDebug() << widget << "font->tickFont:" << font.toString() << opts.tickFont.toString() << "tickMark:" << opts.menuTick
-        //    << "width=" << opts.fontTickWidth << "/" << QFontMetrics(opts.tickFont).boundingRect(opts.menuTick).width();
-        return true;
     }
-    return false;
 }
 
 static bool menuTickCompensation(const Options &opts, int refWidth, int &dx)
@@ -2118,9 +2114,7 @@ Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option,
         break;
     case PE_FrameStatusBar:
     case PE_FrameMenu:
-        if (widget) {
-            initFontTickData(opts, widget->font(), widget);
-        }
+        initFontTickData(widget ? widget->font() : QApplication::font("QMenu"), widget);
         drawFunc = &Style::drawPrimitiveFrameStatusBarOrMenu;
         break;
     case PE_FrameDockWidget:
@@ -2177,9 +2171,7 @@ Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option,
         drawFunc = &Style::drawPrimitivePanelTipLabel;
         break;
     case PE_PanelMenu:
-        if (widget) {
-            initFontTickData(opts, widget->font(), widget);
-        }
+        initFontTickData(widget ? widget->font() : QApplication::font("QMenu"), widget);
         drawFunc = &Style::drawPrimitivePanelMenu;
         break;
     default:
@@ -2570,7 +2562,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                 }
 #ifdef QTC_QT5_ENABLE_KDE
                 if (opts.dwtSettings & DWT_FONT_AS_PER_TITLEBAR) {
-                    painter->setFont(KGlobalSettings::windowTitleFont());
+                    painter->setFont(QFontDatabase::systemFont(QFontDatabase::TitleFont));
                 }
 #endif
                 QFontMetrics fm(painter->fontMetrics());
@@ -3212,7 +3204,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
 
             // check if the font tick is wider than the current margin
             // and adjust if necessary
-            initFontTickData(opts, menuItem->font, widget);
+            initFontTickData(menuItem->font, widget);
             int dx = 0;
             if (menuTickCompensation(opts, checkcol, dx)) {
                 r.adjust(-dx, 0, dx, 0);
@@ -5560,7 +5552,7 @@ void Style::drawComplexControl(ComplexControl control, const QStyleOptionComplex
                 font.setBold(true);
                 painter->setFont(font);
 #else
-                painter->setFont(KGlobalSettings::windowTitleFont());
+                painter->setFont(QFontDatabase::systemFont(QFontDatabase::TitleFont));
 #endif
 
                 QFontMetrics fm(painter->fontMetrics());
@@ -6390,7 +6382,7 @@ QSize Style::sizeFromContents(ContentsType type, const QStyleOption *option, con
     }
     case CT_MenuItem:
         if (auto mi = styleOptCast<QStyleOptionMenuItem>(option)) {
-            initFontTickData(opts, mi->font, widget);
+            initFontTickData(mi->font, widget);
             // Taken from QWindowStyle...
             int w = size.width();
 
