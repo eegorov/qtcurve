@@ -494,8 +494,7 @@ typedef enum
     WIDGET_OTHER
 } EWidget;
 
-typedef enum
-{
+typedef enum {
     APP_ALLOW_BASIC,
     APP_ALLOW_FADE,
     APP_ALLOW_STRIPED,
@@ -972,6 +971,16 @@ sbSliderMOLen(const Options &opts, int len)
                            SHADE_BLEND_SELECTED))
         return 4;
     return 6;
+}
+
+template<typename T> static inline QSet<T>
+qSetFromList(const QList<T> &list)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    return QSet<T>(list.begin(), list.end());
+#else
+    return QSet<T>::fromList(list);
+#endif
 }
 
 }

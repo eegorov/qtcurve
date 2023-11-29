@@ -86,6 +86,8 @@
 #  include "dialog_information-png.h"
 #endif
 
+#include <algorithm>
+
 // WebKit seems to just use the values from ::pixelMetric to get button sizes. So, in pixelMetric we add some extra padding to PM_ButtonMargin
 // if we're max rounding - this gives a nicer border. However, dont want this on real buttons - so in sizeFromContents we remove this padding
 // in CT_PushButton and CT_ComboBox
@@ -2942,12 +2944,13 @@ int Style::pixelMetric(PixelMetric metric, const QStyleOption *option, const QWi
         case PM_MenuBarItemSpacing:
             return 0;
         case PM_ToolBarItemMargin:
-            return 0;
+            // with two locked toolbars together the last/first items are too close when there is no frame,
+            // so add a margin instead.
+            return TB_NONE==opts.toolbarBorders ? 1 : 0;
         case PM_ToolBarItemSpacing:
             return TBTN_JOINED==opts.tbarBtns ? 0 : 1;
         case PM_ToolBarFrameWidth:
-            // Remove because, in KDE4 at least, if have two locked toolbars together then the last/first items are too close
-            return /*TB_NONE==opts.toolbarBorders ? 0 : */1;
+            return TB_NONE==opts.toolbarBorders ? 0 : 1;
         case PM_FocusFrameVMargin:
         case PM_FocusFrameHMargin:
             return 2;
@@ -4031,8 +4034,7 @@ void Style::drawPrimitive(PrimitiveElement element, const QStyleOption *option, 
                     else if (fo && fo->lineWidth > 0) {
                         bool kwinTab(theThemedApp == APP_KWIN && widget &&
                                      !widget->parentWidget() &&
-                                     oneOf(widget->metaObject()->className(),
-                                           "KWin::TabBox"));
+                                     oneOf(widget->metaObject()->className(), "KWin::TabBox"));
                         QStyleOption opt(*option);
 
                         painter->save();
@@ -6122,8 +6124,7 @@ void Style::drawControl(ControlElement element, const QStyleOption *option, QPai
                 painter->save();
 
                 if (!opts.xbar ||
-                    (!widget || oneOf("QWidget",
-                                      widget->metaObject()->className()))) {
+                    (!widget || oneOf(widget->metaObject()->className(), "QWidget"))) {
                     drawMenuOrToolBarBackground(widget, painter,
                                                 mbi->menuRect, option);
                 }
@@ -6606,8 +6607,7 @@ void Style::drawControl(ControlElement element, const QStyleOption *option, QPai
         case CE_MenuBarEmptyArea: {
             painter->save();
             if (!opts.xbar ||
-                (!widget || noneOf(widget->metaObject()->className(),
-                                   "QWidget"))) {
+                (!widget || noneOf(widget->metaObject()->className(), "QWidget"))) {
                 drawMenuOrToolBarBackground(widget, painter, r, option);
             }
             if (TB_NONE != opts.toolbarBorders && widget &&
@@ -11746,7 +11746,7 @@ void Style::drawBorder(QPainter *p, const QRect &r, const QStyleOption *option, 
                           : cols[WIDGET_PROGRESSBAR==w
                                     ? PBAR_BORDER
                                     : !enabled && (WIDGET_BUTTON(w) || WIDGET_SLIDER_TROUGH==w)
-                                        ? QTC_DISABLED_BORDER
+                                        ? QTC_STD_BORDER
                                             : m_mouseOverCols==cols && IS_SLIDER(w)
                                                 ? SLIDER_MO_BORDER_VAL
                                                 : borderVal]);
@@ -12903,7 +12903,7 @@ void Style::setMenuColors(const QColor &bgnd)
     switch(opts.shadeMenubars)
     {
         case SHADE_NONE:
-            memcpy(m_menubarCols, m_backgroundCols, sizeof(QColor)*(TOTAL_SHADES+1));
+            std::copy(m_backgroundCols, m_backgroundCols + TOTAL_SHADES + 1, m_menubarCols);
             break;
         case SHADE_BLEND_SELECTED:
             shadeColors(midColor(m_highlightCols[ORIGINAL_SHADE], m_backgroundCols[ORIGINAL_SHADE]), m_menubarCols);

@@ -58,6 +58,8 @@
 #include <QTextStream>
 #include <QMdiArea>
 #include <QMdiSubWindow>
+#include <QMimeDatabase>
+#include <QMimeType>
 #include <QStyleFactory>
 #include <QCloseEvent>
 #include <QRegExp>
@@ -69,29 +71,22 @@
 #include <QActionGroup>
 
 // KDE
+#include <kwidgetsaddons_version.h>
 #include <klocalizedstring.h>
 #include <kactioncollection.h>
 #include <kguiitem.h>
-#include <kfiledialog.h>
 #include <kmessagebox.h>
 #include <kcharselect.h>
 #include <kstandardaction.h>
 #include <ktoolbar.h>
 #include <kzip.h>
-#include <kmimetype.h>
 #include <kcolorscheme.h>
 #include <ksharedconfig.h>
 #include <kconfig.h>
 #include <kconfiggroup.h>
 #include <kaboutdata.h>
 
-// KDE4 support
-#include <KDE/KGlobal>
-#include <KDE/KStandardDirs>
-
-// system
-#include <mutex>
-#include <initializer_list>
+#include <algorithm>
 
 #define EXTENSION ".qtcurve"
 #define VERSION_WITH_KWIN_SETTINGS qtcMakeVersion(1, 5)
@@ -221,9 +216,9 @@ static const KStandardAction::StandardAction standardAction[] =
 
 static QString toString(const QSet<QString> &set)
 {
-    QStringList list=set.toList();
+    QStringList list = set.values();
 
-    qSort(list);
+    std::sort(list.begin(), list.end());
     return list.join(", ");
 }
 
@@ -236,7 +231,7 @@ static QSet<QString> toSet(const QString &str)
     for(; it!=end; ++it)
         (*it)=(*it).simplified();
 
-    return QSet<QString>::fromList(list);
+    return QtCurve::qSetFromList(list);
 }
 
 CStylePreview::CStylePreview(QWidget *parent)
@@ -296,15 +291,15 @@ class CWorkspace : public QMdiArea
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     }
 
-    QSize sizeHint() const
+    QSize sizeHint() const override
     {
         return QSize(200, 200);
     }
 
-    void paintEvent(QPaintEvent *)
+    void paintEvent(QPaintEvent *) override
     {
         QPainter p(viewport());
-        p.fillRect(rect(), palette().color(backgroundRole()).dark(110));
+        p.fillRect(rect(), palette().color(backgroundRole()).darker(110));
     }
 };
 
@@ -351,8 +346,7 @@ public:
         setFlags(flags()|Qt::ItemIsEditable);
     }
 
-    bool
-    operator<(const QTreeWidgetItem &i) const
+    bool operator<(const QTreeWidgetItem &i) const override
     {
         return (text(0).toDouble() < i.text(0).toDouble() ||
                 (qtcEqual(text(0).toDouble(), i.text(0).toDouble()) &&
@@ -385,8 +379,7 @@ public:
         setTextAlignment(0, Qt::AlignRight);
     }
 
-    bool
-    operator<(const QTreeWidgetItem &o) const
+    bool operator<(const QTreeWidgetItem &o) const override
     {
         return stackId < ((CStackItem&)o).stackId;
     }
@@ -463,9 +456,9 @@ void CGradientPreview::setColor(const QColor &col)
 
 static QString readEnvPath(const char *env)
 {
-   const char *path=getenv(env);
+   const char *path = getenv(env);
 
-   return path ? QFile::decodeName(path) : QString::null;
+   return path ? QFile::decodeName(path) : QString();
 }
 
 static QString
@@ -511,8 +504,7 @@ static int getHideFlags(const QCheckBox *kbd, const QCheckBox *kwin)
            (kwin->isChecked() ? HIDE_KWIN : HIDE_NONE);
 }
 
-enum ShadeWidget
-{
+enum ShadeWidget {
     SW_MENUBAR,
     SW_SLIDER,
     SW_CHECK_RADIO,
@@ -525,36 +517,35 @@ enum ShadeWidget
 
 static QString uiString(EShade shade, ShadeWidget sw)
 {
-    switch(shade)
-    {
-        case SHADE_NONE:
-            switch(sw)
-            {
-                case SW_MENUBAR:
-                case SW_PROGRESS:
-                    return i18n("Background");
-                case SW_COMBO:
-                case SW_SLIDER:
-                    return i18n("Button");
-                case SW_CHECK_RADIO:
-                    return i18n("Text");
-                case SW_CR_BGND:
-                case SW_LV_HEADER:
-                case SW_MENU_STRIPE:
-                    return i18n("None");
-            }
+    switch (shade) {
+    case SHADE_NONE:
+        switch(sw) {
+        case SW_MENUBAR:
+        case SW_PROGRESS:
+            return i18n("Background");
+        case SW_COMBO:
+        case SW_SLIDER:
+            return i18n("Button");
+        case SW_CHECK_RADIO:
+            return i18n("Text");
+        case SW_CR_BGND:
+        case SW_LV_HEADER:
+        case SW_MENU_STRIPE:
         default:
-            return i18n("<unknown>");
-        case SHADE_CUSTOM:
-            return i18n("Custom:");
-        case SHADE_SELECTED:
-            return i18n("Selected background");
-        case SHADE_BLEND_SELECTED:
-            return i18n("Blended selected background");
-        case SHADE_DARKEN:
-            return SW_MENU_STRIPE==sw ? i18n("Menu background") : i18n("Darken");
-        case SHADE_WINDOW_BORDER:
-            return i18n("Titlebar");
+            return i18n("None");
+        }
+    default:
+        return i18n("<unknown>");
+    case SHADE_CUSTOM:
+        return i18n("Custom:");
+    case SHADE_SELECTED:
+        return i18n("Selected background");
+    case SHADE_BLEND_SELECTED:
+        return i18n("Blended selected background");
+    case SHADE_DARKEN:
+        return SW_MENU_STRIPE==sw ? i18n("Menu background") : i18n("Darken");
+    case SHADE_WINDOW_BORDER:
+        return i18n("Titlebar");
     }
 }
 
@@ -1729,11 +1720,25 @@ QtCurveConfig::setupPresets(const Options &currentStyle,
                             const Options &defaultStyle)
 {
     // TODO custom filter and figure out what directory to use.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    QStringList files(KGlobal::dirs()->findAllResources("data", "QtCurve/*" EXTENSION, KStandardDirs::NoDuplicates));
-#pragma GCC diagnostic pop
-
+    QStringList files;
+    {
+        // Make unique list of relative paths
+        QHash<QString, QString> files_map;
+        QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericConfigLocation,
+                                                     QStringLiteral("QtCurve"),
+                                                     QStandardPaths::LocateDirectory);
+        for (const QString &dir: dirs) {
+            const QDir d(dir);
+            const QStringList fileNames = d.entryList(QStringList() << QStringLiteral("*" EXTENSION));
+            for (const QString &file: fileNames) {
+                if (!files_map.contains(file)) {
+                    auto abspath = d.absoluteFilePath(file);
+                    files_map.insert(file, abspath);
+                    files.append(file);
+                }
+            }
+        }
+    }
     files.sort();
 
     QStringList::Iterator it(files.begin()),
@@ -2039,8 +2044,16 @@ void QtCurveConfig::stopSelected()
 
 void QtCurveConfig::exportKDE3()
 {
-    if(KMessageBox::Yes==KMessageBox::questionYesNo(this, i18n("Export your current KDE4 color palette, and font, so "
-                                                               "that they can be used by KDE3 applications?")))
+#if KWIDGETSADDONS_VERSION >= QT_VERSION_CHECK(5, 100, 0)
+    if(KMessageBox::PrimaryAction==KMessageBox::questionTwoActions(this,
+#else
+    if(KMessageBox::Yes==KMessageBox::questionYesNo(this,
+#endif
+        i18n("Export your current KDE4 color palette, and font, so "
+             "that they can be used by KDE3 applications?"),
+        QString(),
+        KGuiItem(i18nc("@action:button", "Export"), "document-export"),
+        KStandardGuiItem::cancel()))
     {
         QString      kde3Home(kdeHome(true));
         KConfig      k3globals(kde3Home+"/share/config/kdeglobals", KConfig::NoGlobals);
@@ -2084,8 +2097,16 @@ void QtCurveConfig::exportKDE3()
 
 void QtCurveConfig::exportQt()
 {
-    if(KMessageBox::Yes==KMessageBox::questionYesNo(this, i18n("Export your current KDE4 color palette, and font, so "
-                                                               "that they can be used by pure-Qt3 applications?")))
+#if KWIDGETSADDONS_VERSION >= QT_VERSION_CHECK(5, 100, 0)
+    if(KMessageBox::PrimaryAction==KMessageBox::questionTwoActions(this,
+#else
+    if(KMessageBox::Yes==KMessageBox::questionYesNo(this,
+#endif
+        i18n("Export your current KDE4 color palette, and font, so "
+             "that they can be used by pure-Qt3 applications?"),
+        QString(),
+        KGuiItem(i18nc("@action:button", "Export"), "document-export"),
+        KStandardGuiItem::cancel()))
     {
         KConfig        cfg(QDir::homePath()+"/.qt/qtrc", KConfig::NoGlobals);
         KConfigGroup   gen(&cfg, "General");
@@ -2136,14 +2157,21 @@ void QtCurveConfig::exportQt()
 
 void QtCurveConfig::menubarTitlebarBlend()
 {
+#if KWIDGETSADDONS_VERSION >= QT_VERSION_CHECK(5, 100, 0)
+    if(KMessageBox::PrimaryAction==KMessageBox::questionTwoActions(this,
+#else
     if(KMessageBox::Yes==KMessageBox::questionYesNo(this,
+#endif
         i18n("<p>Set the following config items so that window titlebar and menubars appear blended?</p>"
              "<ul><li>Menubar, titlebar, and inactive titlebar gradient to \"%1\"</li>"
              "<li>Disable \"Blend titlebar color into background color\"</li>"
              "<li>Set menubar coloration to \"%2\"</li>"
              "<li>Extend window dragging into menubar</li>",
              uiString((EAppearance)menubarAppearance->currentIndex()),
-             uiString(SHADE_WINDOW_BORDER, SW_MENUBAR))))
+             uiString(SHADE_WINDOW_BORDER, SW_MENUBAR)),
+        QString(),
+        KGuiItem(i18nc("@action:button", "Set"), "dialog-ok"),
+        KStandardGuiItem::cancel()))
     {
         titlebarAppearance->setCurrentIndex(menubarAppearance->currentIndex());
         inactiveTitlebarAppearance->setCurrentIndex(menubarAppearance->currentIndex());
@@ -2590,11 +2618,23 @@ QtCurveConfig::getPresetName(const QString &cap, QString label, QString def,
                         def = i18n("%1 New", name);
                         name = QString();
                     } else if (name == presetsCombo->currentText() ||
+#if KWIDGETSADDONS_VERSION >= QT_VERSION_CHECK(5, 100, 0)
+                               KMessageBox::warningTwoActions(
+#else
                                KMessageBox::warningYesNo(
+#endif
                                    this, i18n("<p>A preset named \"%1\" "
                                               "already exists.</p><p>Do you "
                                               "wish to overwrite this?</p>",
-                                              name)) == KMessageBox::Yes) {
+                                              name),
+                                   QString(),
+                                   KStandardGuiItem::overwrite(),
+                                   KStandardGuiItem::cancel())
+#if KWIDGETSADDONS_VERSION >= QT_VERSION_CHECK(5, 100, 0)
+                               == KMessageBox::PrimaryAction) {
+#else
+                               == KMessageBox::Yes) {
+#endif
                         return name;
                     } else {
                         label = i18n("<p>Please enter a new name:</p>");
@@ -2615,8 +2655,16 @@ QtCurveConfig::getPresetName(const QString &cap, QString label, QString def,
 
 void QtCurveConfig::deletePreset()
 {
-    if(KMessageBox::Yes==KMessageBox::warningYesNo(this, i18n("<p>Are you sure you wish to delete:</p><p><b>%1</b></p>",
-                                                              presetsCombo->currentText())))
+#if KWIDGETSADDONS_VERSION >= QT_VERSION_CHECK(5, 100, 0)
+    if(KMessageBox::PrimaryAction==KMessageBox::warningTwoActions(this,
+#else
+    if(KMessageBox::Yes==KMessageBox::warningYesNo(this,
+#endif
+        i18n("<p>Are you sure you wish to delete:</p><p><b>%1</b></p>",
+             presetsCombo->currentText()),
+        QString(),
+        KStandardGuiItem::del(),
+        KStandardGuiItem::cancel()))
     {
         if(QFile::remove(presets[presetsCombo->currentText()].fileName))
         {
@@ -2632,14 +2680,14 @@ void QtCurveConfig::deletePreset()
 
 void QtCurveConfig::importPreset()
 {
-    QString file(KFileDialog::getOpenFileName(
-                     QUrl(), i18n("*" EXTENSION "|QtCurve Settings Files\n"
-                                  THEME_PREFIX "*" THEME_SUFFIX
-                                  "|QtCurve KDE Theme Files"), this));
+    auto file = QFileDialog::getOpenFileName(this, i18n("Open"), QString(),
+                                             i18n("QtCurve Settings Files (*" EXTENSION ");;"
+                                                  "QtCurve KDE Theme Files (" THEME_PREFIX "*" THEME_SUFFIX ")"));
 
     if (!file.isEmpty()) {
-        KMimeType::Ptr mimeType=KMimeType::findByFileContent(file);;
-        bool           compressed(mimeType && !mimeType->is("text/plain"));
+        QMimeDatabase mime_db;
+        auto mimeType = mime_db.mimeTypeForFile(file, QMimeDatabase::MatchContent);
+        bool           compressed(mimeType.isValid() && !mimeType.inherits("text/plain"));
         QString        fileName(getFileName(file)),
                        baseName(fileName.remove(EXTENSION).replace(' ', '_')),
                        name(QString(baseName).replace('_', ' '));
@@ -2770,7 +2818,11 @@ void QtCurveConfig::importPreset()
 void QtCurveConfig::exportPreset()
 {
 #ifdef QTC_QT5_STYLE_SUPPORT
+#if KWIDGETSADDONS_VERSION >= QT_VERSION_CHECK(5, 100, 0)
+    switch (KMessageBox::questionTwoActionsCancel(
+#else
     switch (KMessageBox::questionYesNoCancel(
+#endif
                 this, i18n("<p>In which format would you like to export the "
                            "QtCurve settings?<ul><li><i>QtCurve settings "
                            "file</i> - a file to be imported via this config "
@@ -2780,19 +2832,26 @@ void QtCurveConfig::exportPreset()
                 i18n("Export Settings"),
                 KGuiItem(i18n("QtCurve Settings File")),
                 KGuiItem(i18n("Standalone Theme")))) {
+#if KWIDGETSADDONS_VERSION >= QT_VERSION_CHECK(5, 100, 0)
+    case KMessageBox::SecondaryAction:
+#else
     case KMessageBox::No:
+#endif
         exportTheme();
     case KMessageBox::Cancel:
         return;
+#if KWIDGETSADDONS_VERSION >= QT_VERSION_CHECK(5, 100, 0)
+    case KMessageBox::PrimaryAction:
+#else
     case KMessageBox::Yes:
+#endif
         break;
     }
 #endif
 
     bool compressed = haveImages();
-    QString file(KFileDialog::getSaveFileName(
-                     QUrl(), i18n("*" EXTENSION "|QtCurve Settings Files"),
-                     this));
+    auto file = QFileDialog::getSaveFileName(this, i18n("Save As"), QString(),
+                                             i18n("QtCurve Settings Files (*" EXTENSION ")"));
 
     if (!file.isEmpty()) {
         bool rv = [&] {

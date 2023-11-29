@@ -43,8 +43,7 @@
 #include <common/config_file.h>
 
 #ifdef QTC_QT5_ENABLE_KDE
-#include <KDE/KIcon>
-#include <KDE/KTitleWidget>
+#include <KWidgetsAddons/KTitleWidget>
 #endif
 
 namespace QtCurve {
@@ -324,7 +323,7 @@ Style::drawPrimitiveIndicatorArrow(PrimitiveElement element,
         }
         if (col.alpha() < 255 && element == PE_IndicatorArrowRight &&
             widget && widget->inherits("KUrlButton")) {
-            col = blendColors(col, palette.background().color(), col.alphaF());
+            col = blendColors(col, palette.window().color(), col.alphaF());
         }
         drawArrow(painter, r, element, col, false, false);
     }
@@ -637,11 +636,11 @@ Style::drawPrimitiveFrame(PrimitiveElement,
                 if (opts.round && qtcIsFlatBgnd(opts.bgndAppearance) &&
                     opts.bgndOpacity == 100 && widget &&
                     widget->parentWidget() && !inQAbstractItemView // &&
-                    // widget->palette().background().color() !=
-                    // widget->parentWidget()->palette().background().color()
+                    // widget->palette().window().color() !=
+                    // widget->parentWidget()->palette().window().color()
                     ) {
                     painter->setPen(widget->parentWidget()->palette()
-                                    .background().color());
+                                    .window().color());
                     painter->drawRect(r);
                     painter->drawRect(r.adjusted(1, 1, -1, -1));
                 }
@@ -781,7 +780,7 @@ Style::drawPrimitivePanelItemViewItem(PrimitiveElement,
                                       QPainter *painter,
                                       const QWidget *widget) const
 {
-    auto v4Opt = styleOptCast<QStyleOptionViewItemV4>(option);
+    auto opt = styleOptCast<QStyleOptionViewItem>(option);
     auto view = qobject_cast<const QAbstractItemView*>(widget);
     QRect r = option->rect;
     const QPalette &palette(option->palette);
@@ -790,19 +789,19 @@ Style::drawPrimitivePanelItemViewItem(PrimitiveElement,
     bool hover = (state & State_MouseOver && state & State_Enabled &&
                   (!view ||
                    view->selectionMode() != QAbstractItemView::NoSelection));
-    bool hasCustomBackground = (v4Opt->backgroundBrush.style() != Qt::NoBrush &&
+    bool hasCustomBackground = (opt->backgroundBrush.style() != Qt::NoBrush &&
                                 !(option->state & State_Selected));
     bool hasSolidBackground =
         (!hasCustomBackground ||
-         v4Opt->backgroundBrush.style() == Qt::SolidPattern);
+         opt->backgroundBrush.style() == Qt::SolidPattern);
     if (!hover && !(state & State_Selected) && !hasCustomBackground &&
-        !(v4Opt->features & QStyleOptionViewItem::Alternate)) {
+        !(opt->features & QStyleOptionViewItem::Alternate)) {
         return true;
     }
     QPalette::ColorGroup cg(state & State_Enabled ? state & State_Active ?
                             QPalette::Normal : QPalette::Inactive :
                             QPalette::Disabled);
-    if (v4Opt && (v4Opt->features & QStyleOptionViewItem::Alternate)) {
+    if (opt && (opt->features & QStyleOptionViewItem::Alternate)) {
         painter->fillRect(r, option->palette.brush(cg,
                                                    QPalette::AlternateBase));
     }
@@ -812,7 +811,7 @@ Style::drawPrimitivePanelItemViewItem(PrimitiveElement,
     if (hasCustomBackground) {
         painter->save();
         painter->setBrushOrigin(r.topLeft());
-        painter->fillRect(r, v4Opt->backgroundBrush);
+        painter->fillRect(r, opt->backgroundBrush);
         painter->restore();
     }
     if (state & State_Selected || hover) {
@@ -823,7 +822,7 @@ Style::drawPrimitivePanelItemViewItem(PrimitiveElement,
             }
         }
         QColor color = (hasCustomBackground && hasSolidBackground ?
-                        v4Opt->backgroundBrush.color() :
+                        opt->backgroundBrush.color() :
                         palette.color(cg, QPalette::Highlight));
         bool square = ((opts.square & SQUARE_LISTVIEW_SELECTION) &&
                        ((widget && !widget->inherits("KFilePlacesView") &&
@@ -851,9 +850,10 @@ Style::drawPrimitivePanelItemViewItem(PrimitiveElement,
                               opts.selectionAppearance, WIDGET_SELECTION);
         } else {
             QPixmap pix;
-            QString key;
-            key.sprintf("qtc-sel-%x-%x", r.height(), color.rgba());
-            if (!m_usePixmapCache || !QPixmapCache::find(key, pix)) {
+            QString key = QStringLiteral("qtc-sel-%1-%2")
+                .arg(r.height(), 0, 16)
+                .arg(color.rgba(), 0, 16);
+            if (!m_usePixmapCache || !QPixmapCache::find(key, &pix)) {
                 pix = QPixmap(QSize(24, r.height()));
                 pix.fill(Qt::transparent);
                 QPainter pixPainter(&pix);
@@ -879,14 +879,14 @@ Style::drawPrimitivePanelItemViewItem(PrimitiveElement,
             }
             bool roundedLeft = false;
             bool roundedRight = false;
-            if (v4Opt) {
-                roundedLeft = (v4Opt->viewItemPosition ==
-                               QStyleOptionViewItemV4::Beginning);
-                roundedRight = (v4Opt->viewItemPosition ==
-                                QStyleOptionViewItemV4::End);
-                if (oneOf(v4Opt->viewItemPosition,
-                          QStyleOptionViewItemV4::OnlyOne,
-                          QStyleOptionViewItemV4::Invalid) ||
+            if (opt) {
+                roundedLeft = (opt->viewItemPosition ==
+                               QStyleOptionViewItem::Beginning);
+                roundedRight = (opt->viewItemPosition ==
+                                QStyleOptionViewItem::End);
+                if (oneOf(opt->viewItemPosition,
+                          QStyleOptionViewItem::OnlyOne,
+                          QStyleOptionViewItem::Invalid) ||
                     (view && (view->selectionBehavior() !=
                               QAbstractItemView::SelectRows))) {
                     roundedLeft = roundedRight = true;
@@ -1592,7 +1592,7 @@ Style::drawPrimitiveIndicatorRadioButton(PrimitiveElement,
                                !opts.crHighlight && mo ?
                                use[CR_MO_FILL] :
                                palette.base().color() :
-                               palette.background().color());
+                               palette.window().color());
             QPainterPath path;
 
             path.addEllipse(QRectF(rect).adjusted(0.5, 0.5, -1.0, -1.0));
@@ -1733,7 +1733,7 @@ Style::drawPrimitiveIndicatorCheckBox(PrimitiveElement element,
                                opts.coloredMouseOver == MO_NONE &&
                                !opts.crHighlight && mo ? use[CR_MO_FILL] :
                                palette.base().color() :
-                               palette.background().color());
+                               palette.window().color());
             bool lightBorder = DRAW_LIGHT_BORDER(false, WIDGET_TROUGH,
                                                  APPEARANCE_INVERTED);
             rect = QRect(doEtch ? rect.adjusted(1, 1, -1, -1) : rect);
@@ -1753,7 +1753,7 @@ Style::drawPrimitiveIndicatorCheckBox(PrimitiveElement element,
             } else {
                 setPainterPen(painter, midColor(state & State_Enabled ?
                                          palette.base().color() :
-                                         palette.background().color(), use[3]), QPENWIDTH1);
+                                         palette.window().color(), use[3]), QPENWIDTH1);
                 if (lightBorder) {
                     drawRect(painter, rect.adjusted(1, 1, -1, -1));
                 } else {
@@ -2078,7 +2078,7 @@ Style::drawPrimitiveFrameTabBarBase(PrimitiveElement,
             drawFadedLine(painter, QRect(topLine.p1(), topLine.p2()),
                           tbb->shape == QTabBar::RoundedSouth &&
                           opts.appearance == APPEARANCE_FLAT ?
-                          option->palette.background().color() :
+                          option->palette.window().color() :
                           use[tbb->shape == QTabBar::RoundedNorth ?
                               QTC_STD_BORDER :
                               (opts.borderTab ? 0 : FRAME_DARK_SHADOW)],

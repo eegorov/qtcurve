@@ -594,7 +594,7 @@ public:
 
     bool ok() const {return values.count() > 0;}
     bool hasKey(const QString &key) {return values.contains(key);}
-    QString readEntry(const QString &key, const QString &def=QString::null);
+    QString readEntry(const QString &key, const QString &def=QString());
 private:
     QMap<QString, QString> values;
 };
@@ -707,7 +707,7 @@ static void readDoubleList(QtCConfig &cfg, const char *key, double *list, int co
 #define CFG_READ_STRING_LIST(ENTRY) do {                                \
         QString val = readStringEntry(cfg, #ENTRY);                     \
         Strings set = val.isEmpty() ? Strings() :                       \
-            Strings::fromList(val.split(",", QString::SkipEmptyParts)); \
+            QtCurve::qSetFromList(val.split(",", QString::SkipEmptyParts)); \
         opts->ENTRY = set.count() || cfg.hasKey(#ENTRY) ? set : def->ENTRY; \
     } while (0)
 
@@ -1385,11 +1385,9 @@ bool qtcReadConfig(const QString &file, Options *opts, Options *defOpts, bool ch
                 opts->titlebarButtons &= ~TITLEBAR_BUTTON_ICON_COLOR;
             }
 
-            for(i=APPEARANCE_CUSTOM1; i<(APPEARANCE_CUSTOM1+NUM_CUSTOM_GRAD); ++i)
-            {
+            for (i = APPEARANCE_CUSTOM1; i < (APPEARANCE_CUSTOM1 + NUM_CUSTOM_GRAD); ++i) {
                 QString gradKey;
-
-                gradKey.sprintf("customgradient%d", (i-APPEARANCE_CUSTOM1)+1);
+                QTextStream(&gradKey) << "customgradient" << i - APPEARANCE_CUSTOM1 + 1;
 
                 QStringList vals(readStringEntry(cfg, gradKey)
                                  .split(',', QString::SkipEmptyParts));
@@ -1657,8 +1655,8 @@ void qtcDefaultSettings(Options *opts)
 }
 
 #ifdef CONFIG_WRITE
-#include <KDE/KConfig>
-#include <KDE/KConfigGroup>
+#include <KConfigCore/KConfig>
+#include <KConfigCore/KConfigGroup>
 
 static const char*
 toStr(EDefBtnIndicator ind)
@@ -1738,65 +1736,62 @@ static const char *toStr(EMouseOver mo)
 
 static QString toStr(EAppearance exp, EAppAllow allow, const QtCPixmap *pix)
 {
-    switch(exp)
-    {
-        case APPEARANCE_FLAT:
-            return "flat";
-        case APPEARANCE_RAISED:
-            return "raised";
-        case APPEARANCE_DULL_GLASS:
-            return "dullglass";
-        case APPEARANCE_SHINY_GLASS:
-            return "shinyglass";
-        case APPEARANCE_AGUA:
-            return "agua";
-        case APPEARANCE_SOFT_GRADIENT:
-            return "soft";
-        case APPEARANCE_GRADIENT:
-            return "gradient";
-        case APPEARANCE_HARSH_GRADIENT:
-            return "harsh";
-        case APPEARANCE_INVERTED:
-            return "inverted";
-        case APPEARANCE_DARK_INVERTED:
-            return "darkinverted";
-        case APPEARANCE_SPLIT_GRADIENT:
-            return "splitgradient";
-        case APPEARANCE_BEVELLED:
-            return "bevelled";
-        case APPEARANCE_FILE:
-            // When savng, strip users config dir from location.
-            return QLatin1String("file:")+
-                    (pix->file.startsWith(QtCurve::getConfDir())
-                        ? pix->file.mid(strlen(QtCurve::getConfDir())+1)
-                        : pix->file);
-        case APPEARANCE_FADE:
-            switch(allow)
-            {
-                case APP_ALLOW_BASIC: // Should not get here!
-                case APP_ALLOW_FADE:
-                    return "fade";
-                case APP_ALLOW_STRIPED:
-                    return "striped";
-                case APP_ALLOW_NONE:
-                    return "none";
-            }
+    switch (exp) {
+    case APPEARANCE_FLAT:
+        return "flat";
+    case APPEARANCE_RAISED:
+        return "raised";
+    case APPEARANCE_DULL_GLASS:
+        return "dullglass";
+    case APPEARANCE_SHINY_GLASS:
+        return "shinyglass";
+    case APPEARANCE_AGUA:
+        return "agua";
+    case APPEARANCE_SOFT_GRADIENT:
+        return "soft";
+    case APPEARANCE_GRADIENT:
+        return "gradient";
+    case APPEARANCE_HARSH_GRADIENT:
+        return "harsh";
+    case APPEARANCE_INVERTED:
+        return "inverted";
+    case APPEARANCE_DARK_INVERTED:
+        return "darkinverted";
+    case APPEARANCE_SPLIT_GRADIENT:
+        return "splitgradient";
+    case APPEARANCE_BEVELLED:
+        return "bevelled";
+    case APPEARANCE_FILE:
+        // When savng, strip users config dir from location.
+        return QLatin1String("file:")+
+            (pix->file.startsWith(QtCurve::getConfDir())
+             ? pix->file.mid(strlen(QtCurve::getConfDir())+1)
+             : pix->file);
+    case APPEARANCE_FADE:
+        switch (allow) {
+        case APP_ALLOW_BASIC: // Should not get here!
+        case APP_ALLOW_FADE:
+            return "fade";
+        case APP_ALLOW_STRIPED:
+            return "striped";
+        case APP_ALLOW_NONE:
         default:
-        {
-            QString app;
-
-            app.sprintf("customgradient%d", (exp-APPEARANCE_CUSTOM1)+1);
-            return app;
+            return "none";
         }
+    default: {
+        QString app;
+        QTextStream(&app) << "customgradient" << exp - APPEARANCE_CUSTOM1 + 1;
+        return app;
+    }
     }
 }
 
 static QString toStr(const QColor &col)
 {
-    QString colorStr;
-
-    colorStr.sprintf("#%02X%02X%02X", col.red(), col.green(), col.blue());
-    return colorStr;
+    return QStringLiteral("#%1%2%3")
+        .arg(col.red(), 2, 16, QLatin1Char('0'))
+        .arg(col.green(), 2, 16, QLatin1Char('0'))
+        .arg(col.blue(), 2, 16, QLatin1Char('0')).toUpper();
 }
 
 static QString toStr(EShade exp, const QColor &col)
@@ -2179,7 +2174,7 @@ static const char * toStr(ETBarBtn tb)
     if (!exportingStyle && def.ENTRY==opts.ENTRY) \
         CFG.deleteEntry(#ENTRY); \
     else \
-        CFG.writeEntry(#ENTRY, QStringList(opts.ENTRY.toList()).join(",")); \
+        CFG.writeEntry(#ENTRY, QStringList(opts.ENTRY.values()).join(",")); \
 
 bool qtcWriteConfig(KConfig *cfg, const Options &opts, const Options &def, bool exportingStyle)
 {
@@ -2385,17 +2380,16 @@ bool qtcWriteConfig(KConfig *cfg, const Options &opts, const Options &def, bool 
         CFG_WRITE_STRING_LIST_ENTRY(useQtFileDialogApps);
         CFG_WRITE_STRING_LIST_ENTRY(nonnativeMenubarApps);
 
-        for(int i=APPEARANCE_CUSTOM1; i<(APPEARANCE_CUSTOM1+NUM_CUSTOM_GRAD); ++i)
-        {
+        for (int i = APPEARANCE_CUSTOM1; i < APPEARANCE_CUSTOM1 + NUM_CUSTOM_GRAD; ++i) {
             GradientCont::const_iterator cg(opts.customGradient.find((EAppearance)i));
-            QString                      gradKey;
+            QString gradKey;
 
-            gradKey.sprintf("customgradient%d", (i-APPEARANCE_CUSTOM1)+1);
+            QTextStream(&gradKey) << "customgradient" << i - APPEARANCE_CUSTOM1 + 1;
 
-            if(cg==opts.customGradient.end())
+            if (cg == opts.customGradient.end()) {
                 CFG.deleteEntry(gradKey);
-            else
-            {
+            }
+            else {
                 GradientCont::const_iterator d;
 
                 if(exportingStyle || (d=def.customGradient.find((EAppearance)i))==def.customGradient.end() || !((*d)==(*cg)))

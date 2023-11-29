@@ -62,8 +62,7 @@ if(ENABLE_QT5)
 
   if(QTC_QT5_ENABLE_KDE)
     find_package(ECM 1.2.0 REQUIRED NO_MODULE)
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_MODULE_PATH}
-      ${ECM_KDE_MODULE_DIR})
+    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_MODULE_PATH})
 
     find_package(KF5 REQUIRED COMPONENTS
       Archive
@@ -71,9 +70,8 @@ if(ENABLE_QT5)
       ConfigWidgets
       FrameworkIntegration
       I18n
-      KDELibs4Support
-      KIO
       GuiAddons
+      KIO
       IconThemes
       WidgetsAddons
       WindowSystem

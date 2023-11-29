@@ -76,27 +76,12 @@
 #include <sys/time.h>
 
 #ifdef QTC_QT5_ENABLE_KDE
-// KDE4 support headers
-#include <KDE/KApplication>
-#include <KDE/KAboutData>
-#include <KDE/KGlobal>
-#include <KDE/KGlobalSettings>
-#include <KDE/KConfig>
-#include <KDE/KConfigGroup>
-#include <KDE/KColorScheme>
-#include <KDE/KStandardDirs>
-#include <KDE/KTitleWidget>
-#include <KDE/KTabBar>
-#include <KDE/KFileDialog>
-#include <KDE/KPassivePopup>
-#include <KDE/KXmlGuiWindow>
-#include <KDE/KStandardAction>
-#include <KDE/KActionCollection>
-#include <KDE/KMenu>
-#include <KDE/KAboutApplicationDialog>
-// KF5 headers
 #include <KConfigCore/KSharedConfig>
 #include <KWindowSystem/KWindowSystem>
+#include <KConfigWidgets/KColorScheme>
+#include <KConfigWidgets/KStandardAction>
+#include <KXmlGui/KActionCollection>
+#include <KXmlGui/KXmlGuiWindow>
 #endif
 
 #include <qtcurve-utils/color.h>
@@ -463,7 +448,7 @@ void Style::init(bool initial)
 //    setupKde4();
 //#endif
 
-    m_windowManager->initialize(opts.windowDrag, opts.windowDragWhiteList.toList(), opts.windowDragBlackList.toList());
+    m_windowManager->initialize(opts.windowDrag, opts.windowDragWhiteList.values(), opts.windowDragBlackList.values());
 
     switch(opts.shadeSliders)
     {
@@ -1208,7 +1193,7 @@ void Style::drawSideBarButton(QPainter *painter, const QRect &r, const QStyleOpt
                        getFill(&opt, use), use, false, WIDGET_MENU_ITEM);
     }
     else
-        painter->fillRect(r2, palette.background().color());
+        painter->fillRect(r2, palette.window().color());
 
     if (opt.state & State_MouseOver && opts.coloredMouseOver) {
         r2 = r;
@@ -1703,7 +1688,6 @@ Style::drawLightBevel(QPainter *p, const QRect &r, const QStyleOption *option,
             drawLightBevelReal(p, r, option, widget, round, fill, custom,
                                doBorder, w, true, realRound, onToolbar);
         } else {
-            QString key;
             bool small(circular || (horiz ? r.width() : r.height())<(2*endSize));
             QPixmap pix;
             const QSize pixSize(small ? QSize(r.width(), r.height()) :
@@ -1712,10 +1696,12 @@ Style::drawLightBevel(QPainter *p, const QRect &r, const QStyleOption *option,
             uint state(option->state&(State_Raised|State_Sunken|State_On|State_Horizontal|State_HasFocus|State_MouseOver|
                                          (WIDGET_MDI_WINDOW_BUTTON==w ? State_Active : State_None)));
 
-            key.sprintf("qtc-%x-%x-%x-%x-%x-%x-%x-%x-%x", w, onToolbar ? 1 : 0,
-                        round, (int)realRound, pixSize.width(), pixSize.height(),
-                        state, fill.rgba(), (int)(radius * 100));
-            if (!m_usePixmapCache || !QPixmapCache::find(key, pix)) {
+            QString key = QStringLiteral("qtc-%1-%2-%3-%4-%5-%6-%7-%8-%9")
+                .arg(w, 0, 16).arg(onToolbar ? 1 : 0, 0, 16).arg(round, 0, 16)
+                .arg((int)realRound, 0, 16).arg(pixSize.width(), 0, 16)
+                .arg(pixSize.height(), 0, 16)
+                .arg(state, 0, 16).arg(fill.rgba(), 0, 16).arg((int)(radius * 100), 0, 16);
+            if (!m_usePixmapCache || !QPixmapCache::find(key, &pix)) {
                 pix = QPixmap(pixSize);
                 pix.fill(Qt::transparent);
 
@@ -2131,14 +2117,13 @@ void Style::drawBgndRing(QPainter &painter, int x, int y, int size, int size2, b
 QPixmap Style::drawStripes(const QColor &color, int opacity) const
 {
     QPixmap pix;
-    QString key;
     QColor  col(color);
 
     if(100!=opacity)
         col.setAlphaF(opacity/100.0);
 
-    key.sprintf("qtc-stripes-%x", col.rgba());
-    if(!m_usePixmapCache || !QPixmapCache::find(key, pix))
+    QString key = QStringLiteral("qtc-stripes-%1").arg(col.rgba(), 0, 16);
+    if(!m_usePixmapCache || !QPixmapCache::find(key, &pix))
     {
         pix=QPixmap(QSize(64, 64));
 
@@ -2199,7 +2184,6 @@ Style::drawBackground(QPainter *p, const QColor &bgnd, const QRect &r,
         } else if (app == APPEARANCE_FILE) {
             pix = isWindow ? opts.bgndPixmap.img : opts.menuBgndPixmap.img;
         } else {
-            QString key;
             scaledSize = QSize(grad == GT_HORIZ ? constPixmapWidth : r.width(),
                                grad == GT_HORIZ ? r.height() :
                                constPixmapWidth);
@@ -2207,8 +2191,9 @@ Style::drawBackground(QPainter *p, const QColor &bgnd, const QRect &r,
             if (opacity != 100)
                 col.setAlphaF(opacity / 100.0);
 
-            key.sprintf("qtc-bgnd-%x-%d-%d", col.rgba(), grad, app);
-            if (!m_usePixmapCache || !QPixmapCache::find(key, pix)) {
+            QString key = QStringLiteral("qtc-bgnd-%1-%2-%3")
+                .arg(col.rgba(), 0, 16).arg(grad).arg(app);
+            if (!m_usePixmapCache || !QPixmapCache::find(key, &pix)) {
                 pix = QPixmap(QSize(grad == GT_HORIZ ? constPixmapWidth :
                                     constPixmapHeight, grad == GT_HORIZ ?
                                     constPixmapHeight : constPixmapWidth));
@@ -2246,9 +2231,8 @@ Style::drawBackground(QPainter *p, const QColor &bgnd, const QRect &r,
             grad == GT_HORIZ &&
             qtcGetGradient(app, &opts)->border == GB_SHINE) {
             int size = qMin(BGND_SHINE_SIZE, qMin(r.height() * 2, r.width()));
-            QString key;
-            key.sprintf("qtc-radial-%x", size / BGND_SHINE_STEPS);
-            if (!m_usePixmapCache || !QPixmapCache::find(key, pix)) {
+            QString key = QStringLiteral("qtc-radial-%1").arg(size / BGND_SHINE_STEPS, 0, 16);
+            if (!m_usePixmapCache || !QPixmapCache::find(key, &pix)) {
                 size /= BGND_SHINE_STEPS;
                 size *= BGND_SHINE_STEPS;
                 pix = QPixmap(size, size / 2);
@@ -2615,7 +2599,7 @@ Style::drawBorder(QPainter *p, const QRect &r, const QStyleOption *option,
                         : cols[WIDGET_PROGRESSBAR==w
                                ? PBAR_BORDER
                                : !enabled && (WIDGET_BUTTON(w) || WIDGET_SLIDER_TROUGH==w)
-                               ? QTC_DISABLED_BORDER
+                               ? QTC_STD_BORDER
                                : m_mouseOverCols==cols && IS_SLIDER(w)
                                ? SLIDER_MO_BORDER_VAL
                                : borderVal]);
@@ -2660,7 +2644,7 @@ Style::drawBorder(QPainter *p, const QRect &r, const QStyleOption *option,
             setPainterPen(p, (enabled || BORDER_SUNKEN==borderProfile) /*&&
                                                                   (BORDER_RAISED==borderProfile || BORDER_LIGHT==borderProfile || hasFocus || APPEARANCE_FLAT!=app)*/
                       ? tl
-                      : option->palette.background().color(), QPENWIDTH1);
+                      : option->palette.window().color(), QPENWIDTH1);
             p->drawPath(topPath);
             if(WIDGET_SCROLLVIEW==w || // Because of list view headers, need to draw dark line on right!
                (! ( (WIDGET_ENTRY==w && !hasFocus && !hasMouseOver) ||
@@ -3561,12 +3545,12 @@ Style::drawMenuOrToolBarBackground(const QWidget *widget, QPainter *p,
 #ifdef Q_OS_MACOS
         QColor col(menu ?
                    menuColors(option, m_active)[ORIGINAL_SHADE] :
-                   option->palette.background().color());
+                   option->palette.window().color());
 #else
         QColor col(menu && (option->state & State_Enabled ||
                             opts.shadeMenubars != SHADE_NONE) ?
                    menuColors(option, m_active)[ORIGINAL_SHADE] :
-                   option->palette.background().color());
+                   option->palette.window().color());
 #endif
         // TODO: QtQuick
         int opacity = qtcGetOpacity(widget ? widget : getWidget(p));
@@ -3632,7 +3616,7 @@ void Style::fillTab(QPainter *p, const QRect &r, const QStyleOption *option, con
                     bool tabOnly) const
 {
     bool   invertedSel=option->state&State_Selected && APPEARANCE_INVERTED==opts.appearance;
-    QColor col(invertedSel ? option->palette.background().color() : fill);
+    QColor col(invertedSel ? option->palette.window().color() : fill);
 
     if(opts.tabBgnd && !tabOnly)
         col=shade(col, TO_FACTOR(opts.tabBgnd));
@@ -3781,10 +3765,9 @@ const QColor * Style::getSidebarButtons() const
 
 void Style::setMenuColors(const QColor &bgnd)
 {
-    switch(opts.shadeMenubars)
-    {
+    switch (opts.shadeMenubars) {
     case SHADE_NONE:
-        memcpy(m_menubarCols, m_backgroundCols, sizeof(QColor)*(TOTAL_SHADES+1));
+        std::copy(m_backgroundCols, m_backgroundCols + TOTAL_SHADES + 1, m_menubarCols);
         break;
     case SHADE_BLEND_SELECTED:
         shadeColors(midColor(m_highlightCols[ORIGINAL_SHADE], m_backgroundCols[ORIGINAL_SHADE]), m_menubarCols);
@@ -3959,7 +3942,6 @@ Style::getMdiColors(const QStyleOption *option, bool active) const
         Q_UNUSED(option);
         KConfigGroup cg(m_kdeGlobals, "WM");
 
-//         QColor col = KGlobalSettings::activeTitleColor();
         QColor col = cg.readEntry("activeBackground", QColor(48, 174, 232));
 
         if (col != m_backgroundCols[ORIGINAL_SHADE]) {
@@ -3967,15 +3949,12 @@ Style::getMdiColors(const QStyleOption *option, bool active) const
             shadeColors(col, m_activeMdiColors);
         }
 
-//         col = KGlobalSettings::inactiveTitleColor();
         col = cg.readEntry("inactiveBackground", QColor(224, 223, 222));;
         if (col != m_backgroundCols[ORIGINAL_SHADE]) {
             m_mdiColors = new QColor[TOTAL_SHADES+1];
             shadeColors(col, m_mdiColors);
         }
 
-//         m_activeMdiTextColor = KGlobalSettings::activeTextColor();
-//         m_mdiTextColor = KGlobalSettings::inactiveTextColor();
         m_activeMdiTextColor = cg.readEntry("activeForeground", QColor(255, 255, 255));
         m_mdiTextColor = cg.readEntry("inactiveForeground", QColor(75, 71, 67));
 #endif
@@ -4268,15 +4247,15 @@ Style::widgetDestroyed(QObject *o)
 }
 
 #ifdef QTC_QT5_ENABLE_KDE
-void Style::setupKde4()
-{
-    if(kapp) {
-        setDecorationColors();
-    } else {
-        applyKdeSettings(true);
-        applyKdeSettings(false);
-    }
-}
+// void Style::setupKde4()
+// {
+//     if(kapp) {
+//         setDecorationColors();
+//     } else {
+//         applyKdeSettings(true);
+//         applyKdeSettings(false);
+//     }
+// }
 
 void
 Style::setDecorationColors()
@@ -4289,57 +4268,57 @@ Style::setDecorationColors()
     shadeColors(kcs.decoration(KColorScheme::FocusColor).color(), m_focusCols);
 }
 
-void Style::applyKdeSettings(bool pal)
-{
-    if(pal)
-    {
-        if(!kapp)
-            QApplication::setPalette(standardPalette());
-        setDecorationColors();
-    }
-    else
-    {
-        KConfigGroup g(m_configFile, "General");
-        QFont        mnu=g.readEntry("menuFont", QApplication::font());
+// void Style::applyKdeSettings(bool pal)
+// {
+//     if(pal)
+//     {
+//         if(!kapp)
+//             QApplication::setPalette(standardPalette());
+//         setDecorationColors();
+//     }
+//     else
+//     {
+//         KConfigGroup g(m_configFile, "General");
+//         QFont        mnu=g.readEntry("menuFont", QApplication::font());
 
-        QApplication::setFont(g.readEntry("font", QApplication::font()));
-        QApplication::setFont(mnu, "QMenuBar");
-        QApplication::setFont(mnu, "QMenu");
-        QApplication::setFont(mnu, "KPopupTitle");
-        QApplication::setFont(g.readEntry("toolBarFont", QApplication::font()), "QToolBar");
-    }
-}
+//         QApplication::setFont(g.readEntry("font", QApplication::font()));
+//         QApplication::setFont(mnu, "QMenuBar");
+//         QApplication::setFont(mnu, "QMenu");
+//         QApplication::setFont(mnu, "KPopupTitle");
+//         QApplication::setFont(g.readEntry("toolBarFont", QApplication::font()), "QToolBar");
+//     }
+// }
 #endif
 
 void Style::kdeGlobalSettingsChange(int type, int)
 {
-#ifndef QTC_QT5_ENABLE_KDE
+    // TODO
+    // KDE5 is not emitting this anymore.
+    // We need our own signal from the configure UI
     Q_UNUSED(type);
-#else
-    switch(type) {
-    case KGlobalSettings::StyleChanged: {
-        m_configFile->reparseConfiguration();
-        if (m_usePixmapCache)
-            QPixmapCache::clear();
-        init(false);
+    // switch(type) {
+    // case KGlobalSettings::StyleChanged: {
+    //     m_configFile->reparseConfiguration();
+    //     if (m_usePixmapCache)
+    //         QPixmapCache::clear();
+    //     init(false);
 
-        for (QWidget *widget: QApplication::topLevelWidgets()) {
-            widget->update();
-        }
-        break;
-    }
-    case KGlobalSettings::PaletteChanged:
-        m_configFile->reparseConfiguration();
-        applyKdeSettings(true);
-        if (m_usePixmapCache)
-            QPixmapCache::clear();
-        break;
-    case KGlobalSettings::FontChanged:
-        m_configFile->reparseConfiguration();
-        applyKdeSettings(false);
-        break;
-    }
-#endif
+    //     for (QWidget *widget: QApplication::topLevelWidgets()) {
+    //         widget->update();
+    //     }
+    //     break;
+    // }
+    // case KGlobalSettings::PaletteChanged:
+    //     m_configFile->reparseConfiguration();
+    //     applyKdeSettings(true);
+    //     if (m_usePixmapCache)
+    //         QPixmapCache::clear();
+    //     break;
+    // case KGlobalSettings::FontChanged:
+    //     m_configFile->reparseConfiguration();
+    //     applyKdeSettings(false);
+    //     break;
+    // }
 
     m_blurHelper->setEnabled(Utils::compositingActive());
     m_windowManager->initialize(opts.windowDrag);

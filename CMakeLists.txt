@@ -37,14 +37,6 @@ function(qtc_option name doc def_val)
     set("${name}_DEFINED" On PARENT_SCOPE)
   else()
     set("${name}_DEFINED" Off PARENT_SCOPE)
-    set("${name}" "${def_val}" ${doc} PARENT_SCOPE)
-  endif()
-endfunction()
-function(qtc_variable name doc def_val)
-  if(DEFINED "${name}")
-    set("${name}_DEFINED" On PARENT_SCOPE)
-  else()
-    set("${name}_DEFINED" Off PARENT_SCOPE)
     set("${name}" "${def_val}" PARENT_SCOPE)
   endif()
 endfunction()
@@ -75,8 +67,8 @@ option(QTC_QT4_STYLE_SUPPORT
 ## Common settings.
 # support an infix argument to have different qtcurve-utils libraries, e.g. for
 # GTk2, Qt4 and Qt5
-qtc_variable(QTC_UTILSLIB_INFIX "Infix for having multiple qtcurve-utils's" "")
-qtc_variable(QTC_KDE4_DEFAULT_HOME
+qtc_option(QTC_UTILSLIB_INFIX "Infix for having multiple qtcurve-utils's" "")
+qtc_option(QTC_KDE4_DEFAULT_HOME
   "Path of kde4 home (relative to user home), for reading old theme files only"
   ".kde4")
 
@@ -236,7 +228,10 @@ if(NOT DEFINED LIB_INSTALL_DIR)
 endif()
 
 cmake_c_include_fix_path()
-add_subdirectory(lib)
+if(ENABLE_QT4 OR ENABLE_QT5 OR ENABLE_GTK2)
+    add_subdirectory(lib)
+    add_subdirectory(tools)
+endif()
 if(ENABLE_QT4)
     add_subdirectory(qt4)
 endif()
@@ -246,10 +241,17 @@ endif()
 if(ENABLE_GTK2)
     add_subdirectory(gtk2)
 endif()
-add_subdirectory(tools)
 if(BUILD_TESTING)
   enable_testing()
   add_subdirectory(test)
 endif()
 
+if(QTC_INSTALL_PO)
+    find_package(ECM 1.2.0 REQUIRED NO_MODULE)
+    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_MODULE_PATH})
+
+    find_package(KF5 REQUIRED COMPONENTS
+      I18n)
+    ki18n_install(po)
+endif()
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)

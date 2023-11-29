@@ -72,20 +72,25 @@
 
 #ifdef QTC_QT5_ENABLE_KDE
 #include <QPrintDialog>
-#include <KDE/KApplication>
-#include <KDE/KGlobal>
-#include <KDE/KGlobalSettings>
-#include <KDE/KIconLoader>
-#include <KDE/KIcon>
-#include <KDE/KTitleWidget>
-#include <KDE/KTabBar>
-#include <KDE/KFileDialog>
-#include <KDE/KAboutApplicationDialog>
+#include <KIconThemes/KIconLoader>
+#include <KWidgetsAddons/KTitleWidget>
+#include <KXmlGui/KAboutApplicationDialog>
 #endif
 
 #include <qtcurve-utils/color.h>
 
 namespace QtCurve {
+
+template<typename T>
+static inline int
+horizontalAdvance(const QFontMetrics &fm, T &&text)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    return fm.horizontalAdvance(std::forward<T>(text));
+#else
+    return fm.width(std::forward<T>(text));
+#endif
+}
 
 static const char *constBoldProperty = "qtc-set-bold";
 
@@ -427,7 +432,7 @@ void Style::polish(QPalette &palette)
     }
 #ifdef QTC_QT5_ENABLE_KDE
     // Only set palette here...
-    if (kapp) {
+    if (qApp) {
         setDecorationColors();
     }
 #endif
@@ -1047,7 +1052,7 @@ bool Style::eventFilter(QObject *object, QEvent *event)
         object->inherits("KFilePlacesView")) {
         QWidget *view = ((QAbstractScrollArea*)object)->viewport();
         QPalette palette = view->palette();
-        QColor color = ((QWidget*)object)->palette().background().color();
+        QColor color = ((QWidget*)object)->palette().window().color();
 
         if (qtcIsCustomBgnd(opts))
             color.setAlphaF(0.0);
@@ -1387,9 +1392,8 @@ bool Style::eventFilter(QObject *object, QEvent *event)
             if (!m_progressBarAnimateTimer) {
                 if (opts.animatedProgress || (0 == bar->minimum() && 0 == bar->maximum())) {
                     // we know we'll need a timer, start it at once
-                    if (m_timer.isNull()) {
+                    if (!m_timer.isValid())
                         m_timer.start();
-                    }
                     m_progressBarAnimateFps = constProgressBarFps;
                     m_progressBarAnimateTimer = startTimer(1000/m_progressBarAnimateFps);
                 }
@@ -1597,13 +1601,13 @@ Style::pixelMetric(PixelMetric metric, const QStyleOption *option,
     case PM_MenuBarItemSpacing:
         return 0;
     case PM_ToolBarItemMargin:
-        return 0;
+        // with two locked toolbars together the last/first items are too close when there is no frame,
+        // so add a margin instead.
+        return opts.toolbarBorders == TB_NONE ? 1 : 0;
     case PM_ToolBarItemSpacing:
         return opts.tbarBtns == TBTN_JOINED ? 0 : 1;
     case PM_ToolBarFrameWidth:
-        // Remove because, in KDE4 at least, if have two locked toolbars
-        // together then the last/first items are too close
-        return /* opts.toolbarBorders == TB_NONE ? 0 : */1;
+        return opts.toolbarBorders == TB_NONE ? 0 : 1;
     case PM_FocusFrameVMargin:
     case PM_FocusFrameHMargin:
         return 2;
@@ -2046,7 +2050,7 @@ void Style::initFontTickData(const QFont &font, const QWidget*) const
 #endif
         // adjust the size so the tickmark looks just about right
         opts.tickFont.setPointSizeF(opts.tickFont.pointSizeF() * 1.3);
-        opts.fontTickWidth = QFontMetrics(opts.tickFont).width(opts.menuTick);
+        opts.fontTickWidth = horizontalAdvance(QFontMetrics(opts.tickFont), opts.menuTick);
     }
 }
 
@@ -2347,7 +2351,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                         qtcGetRadius(&opts, r.width(), r.height(),
                                      WIDGET_OTHER, RADIUS_SELECTION);
 
-                    drawBevelGradient(shade(palette.background().color(),
+                    drawBevelGradient(shade(palette.window().color(),
                                             TO_FACTOR(opts.splitterHighlight)),
                                       painter, r,
                                       buildPath(QRectF(r), WIDGET_OTHER,
@@ -2357,7 +2361,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                                       WIDGET_SELECTION, false);
                     painter->restore();
                 } else {
-                    drawBevelGradient(shade(palette.background().color(),
+                    drawBevelGradient(shade(palette.window().color(),
                                             TO_FACTOR(opts.splitterHighlight)),
                                       painter, r, !(state & State_Horizontal),
                                       false, opts.selectionAppearance,
@@ -2515,7 +2519,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                 QColor col((opts.dwtSettings & DWT_COLOR_AS_PER_TITLEBAR) ?
                            getMdiColors(option,
                                         state&State_Active)[ORIGINAL_SHADE] :
-                           palette.background().color());
+                           palette.window().color());
                 if (opts.round < ROUND_FULL) {
                     drawBevelGradient(col, painter, fillRect, !verticalTitleBar,
                                       false, opts.dwtAppearance,
@@ -2834,7 +2838,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
             col = palette.base().color();
             break;
         case ECOLOR_BACKGROUND:
-            col = palette.background().color();
+            col = palette.window().color();
             break;
         case ECOLOR_DARK:
             col = m_backgroundCols[2];
@@ -2895,9 +2899,8 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
             painter->save();
 
             if (!m_progressBarAnimateTimer && (opts.animatedProgress || indeterminate)) {
-                if (m_timer.isNull()) {
+                if (!m_timer.isValid())
                     m_timer.start();
-                }
                 // now we'll need a timer, start it at the regular frequency
                 m_progressBarAnimateFps = constProgressBarFps;
                 m_progressBarAnimateTimer = const_cast<Style*>(this)->startTimer(1000/m_progressBarAnimateFps);
@@ -3092,9 +3095,9 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                      opts.customMenuSelTextColor :
                      opts.useHighlightForMenu ?
                      palette.highlightedText().color() :
-                     palette.foreground().color() :
-                     palette.foreground().color() :
-                     palette.foreground().color());
+                     palette.windowText().color() :
+                     palette.windowText().color() :
+                     palette.windowText().color());
 
                 painter->setPen(col);
                 painter->drawText(r, alignment, mbi->text);
@@ -3308,7 +3311,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
             painter->setPen(dis ? palette.text().color() :
                             selected && opts.useHighlightForMenu &&
                             !m_ooMenuCols ? palette.highlightedText().color() :
-                            palette.foreground().color());
+                            palette.windowText().color());
 
             int x;
             int y;
@@ -4269,7 +4272,7 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
         painter->save();
 #ifndef SIMPLE_SCROLLBARS
         if (opts.round != ROUND_NONE && (SCROLLBAR_NONE==opts.scrollbarType || opts.flatSbarButtons))
-            painter->fillRect(r, palette.background().color());
+            painter->fillRect(r, palette.window().color());
 #endif
 
         switch(opts.scrollbarType)
@@ -4550,14 +4553,14 @@ Style::drawControl(ControlElement element, const QStyleOption *option,
                         double   radius(qtcGetRadius(&opts, highlightRect.width(), highlightRect.height(),
                                                      WIDGET_OTHER, RADIUS_SELECTION));
 
-                        drawBevelGradient(shade(palette.background().color(), TO_FACTOR(opts.crHighlight)),
+                        drawBevelGradient(shade(palette.window().color(), TO_FACTOR(opts.crHighlight)),
                                           painter, highlightRect,
                                           buildPath(QRectF(highlightRect), WIDGET_OTHER, ROUNDED_ALL, radius), true,
                                           false, opts.selectionAppearance, WIDGET_SELECTION, false);
                         painter->restore();
                     }
                     else
-                        drawBevelGradient(shade(palette.background().color(), TO_FACTOR(opts.crHighlight)), painter,
+                        drawBevelGradient(shade(palette.window().color(), TO_FACTOR(opts.crHighlight)), painter,
                                           highlightRect, true, false, opts.selectionAppearance, WIDGET_SELECTION);
                 }
                 ParentStyleClass::drawControl(element, &copy, painter, widget);
@@ -5404,7 +5407,7 @@ void Style::drawComplexControl(ComplexControl control, const QStyleOptionComplex
             if(kwin && (state&QtC_StateKWinFillBgnd))
                 drawBevelGradient(titleCols[ORIGINAL_SHADE], painter, tr, path, true, false, APPEARANCE_FLAT, WIDGET_MDI_WINDOW, false);
             if((!kwin && !m_isPreview) ||
-               (APPEARANCE_NONE!=app && (!qtcIsFlat(app) || (titleCols[ORIGINAL_SHADE]!=QApplication::palette().background().color()))))
+               (APPEARANCE_NONE!=app && (!qtcIsFlat(app) || (titleCols[ORIGINAL_SHADE]!=QApplication::palette().window().color()))))
                 drawBevelGradient(titleCols[ORIGINAL_SHADE], painter, tr, path, true, false, app, WIDGET_MDI_WINDOW, false);
 
             if(!(state&QtC_StateKWinNoBorder))
@@ -6412,7 +6415,7 @@ QSize Style::sizeFromContents(ContentsType type, const QStyleOption *option, con
                 fontBold.setBold(true);
                 QFontMetrics fmBold(fontBold);
                 // _set_ w, it will have been initialised to something inappropriately small
-                w = fmBold.width(mi->text);
+                w = horizontalAdvance(fmBold, mi->text);
             }
             else if (mi->text.contains(QLatin1Char('\t')))
                 w += tabSpacing;
@@ -6426,7 +6429,7 @@ QSize Style::sizeFromContents(ContentsType type, const QStyleOption *option, con
                 QFontMetrics fm(fontBold);
                 fontBold.setBold(true);
                 QFontMetrics fmBold(fontBold);
-                w += fmBold.width(mi->text) - fm.width(mi->text);
+                w += horizontalAdvance(fmBold, mi->text) - horizontalAdvance(fm, mi->text);
             }
 
             if (QStyleOptionMenuItem::Separator != mi->menuItemType || opts.buttonStyleMenuSections)
@@ -6690,42 +6693,47 @@ QRect Style::subControlRect(ComplexControl control, const QStyleOptionComplex *o
         break;
     case CC_SpinBox:
         if (auto spinbox = styleOptCast<QStyleOptionSpinBox>(option)) {
-            int fw(spinbox->frame ? pixelMetric(PM_SpinBoxFrameWidth, spinbox, widget) : 0);
             QSize bs;
+            int fw = spinbox->frame ? pixelMetric(PM_SpinBoxFrameWidth, spinbox, widget) : 0;
 
-            bs.setHeight(r.height()>>1);
-            if(bs.height()< 8)
+            bs.setHeight(r.height() >> 1);
+            if (bs.height() < 8)
                 bs.setHeight(8);
             bs.setWidth(opts.buttonEffect != EFFECT_NONE && opts.etchEntry ?
                         16 : 15);
-            bs=bs.expandedTo(QApplication::globalStrut());
+            bs = bs.expandedTo(QApplication::globalStrut());
 
-            int y(0), x(reverse ? 0 : r.width()-bs.width());
+            int y = 0;
+            int x = reverse ? (0 + fw) : (r.width() - bs.width() - fw + r.x());
 
-            switch(subControl)
-            {
+            switch (subControl) {
             case SC_SpinBoxUp:
-                return QAbstractSpinBox::NoButtons==spinbox->buttonSymbols
-                    ? QRect()
-                    : QRect(x, y, bs.width(), bs.height());
-            case SC_SpinBoxDown:
-                if(QAbstractSpinBox::NoButtons==spinbox->buttonSymbols)
+                if (spinbox->buttonSymbols == QAbstractSpinBox::NoButtons)
                     return QRect();
-                else
-                    return QRect(x, y+bs.height(), bs.width(), bs.height()+(bs.height()*2==r.height() ? 0 : 1));
-            case SC_SpinBoxEditField:
-            {
-                int pad=opts.round>ROUND_FULL ? 2 : 0;
-
-                if (QAbstractSpinBox::NoButtons==spinbox->buttonSymbols)
-                    return QRect(fw, fw, (x-fw*2)-pad, r.height()-2*fw);
-                else
-                    return QRect(fw+(reverse ? bs.width() : 0), fw, (x-fw*2)-pad, r.height()-2*fw);
+                r = QRect(x, y, bs.width(), bs.height());
+                break;
+            case SC_SpinBoxDown:
+                if (spinbox->buttonSymbols == QAbstractSpinBox::NoButtons)
+                    return QRect();
+                r = QRect(x, y + bs.height(), bs.width(),
+                          bs.height() + (bs.height() * 2 == r.height() ? 0 : 1));
+                break;
+            case SC_SpinBoxEditField: {
+                int pad = opts.round > ROUND_FULL ? 2 : 0;
+                if (spinbox->buttonSymbols == QAbstractSpinBox::NoButtons) {
+                    r = QRect(fw, fw, (x - fw * 2) - pad, r.height() - 2 * fw);
+                }
+                else {
+                    r = QRect(fw + (reverse ? bs.width() : 0), fw,
+                              (x - fw * 2) - pad, r.height() - 2 * fw);
+                }
+                break;
             }
             case SC_SpinBoxFrame:
             default:
-                return visualRect(spinbox->direction, spinbox->rect, spinbox->rect);
+                break;
             }
+            return visualRect(spinbox->direction, spinbox->rect, r);
         }
         break;
     case CC_ScrollBar:

@@ -23,7 +23,7 @@
 #ifndef __QTCURVE_H__
 #define __QTCURVE_H__
 
-#include <QTime>
+#include <QElapsedTimer>
 #include <QPalette>
 #include <QMap>
 #include <QList>
@@ -31,6 +31,8 @@
 #include <QCache>
 #include <QColor>
 #include <QFont>
+#include <QPainter>
+#include <QPainterPath>
 #include <QStyleOption>
 #include <QtGlobal>
 #include <QCommonStyle>
@@ -325,7 +327,7 @@ private:
     backgroundColors(const QStyleOption *option) const
     {
         return (option ?
-                backgroundColors(option->palette.background().color()) :
+                backgroundColors(option->palette.window().color()) :
                 m_backgroundCols);
     }
     const QColor *highlightColors(const QColor &col) const;
@@ -372,9 +374,9 @@ private:
     void toggleStatusBar(QMainWindow *window);
 
 #ifdef QTC_QT5_ENABLE_KDE
-    void setupKde4();
+    // void setupKde4();
     void setDecorationColors();
-    void applyKdeSettings(bool pal);
+    // void applyKdeSettings(bool pal);
 #endif
     bool isWindowDragWidget(QObject *o);
     void emitMenuSize(QWidget *w, unsigned short size, bool force=false);
@@ -565,7 +567,7 @@ private:
     mutable int m_progressBarAnimateTimer,
         m_progressBarAnimateFps,
         m_animateStep;
-    mutable QTime m_timer;
+    mutable QElapsedTimer m_timer;
     mutable QMap<int, QColor*> m_titleBarButtonsCols;
     mutable QList<int> m_mdiButtons[2]; // 0=left, 1=right
     mutable int m_titlebarHeight;
