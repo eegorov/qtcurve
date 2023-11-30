@@ -32,7 +32,7 @@
 
 #ifdef Qt6X11Extras_FOUND
 #  include <qtcurve-utils/x11base.h>
-#  include <QX11Info>
+#  include <QtGui/private/qtx11extras_p.h>
 #endif
 
 #ifdef QTC_QT6_ENABLE_QTQUICK2
